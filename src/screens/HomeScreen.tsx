@@ -1,188 +1,248 @@
-import React, { useEffect, useState } from 'react';
-import { View, ScrollView, FlatList, TouchableOpacity, Image, Dimensions, StatusBar } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { MotiView } from 'moti';
-import { useTheme } from '../theme/ThemeContext';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, ScrollView, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, Image } from 'react-native';
 import { Typography } from '../components/common/Typography';
-import { PremiumProductCard } from '../components/home/PremiumProductCard';
-import { GlassmorphismSearch } from '../components/home/GlassmorphismSearch';
-import {
-    Car,
-    Briefcase,
-    Smartphone,
-    Zap,
-    Compass,
-    Clock,
-    TrendingUp,
-    Diamond,
-    UserCircle
-} from 'lucide-react-native';
-import { listingService } from '../services/listingService';
+import { Search, MapPin, Bell, Heart, Home, MessageCircle, User, Plus } from 'lucide-react-native';
+import { listingService, Listing } from '../services/listingService';
 import { useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width } = Dimensions.get('window');
+const PRIMARY_PURPLE = '#9D8BFF';
+const BG_COLOR = '#F5F5F5';
 
 const CATEGORIES = [
-    { id: '1', label: 'Luxury', icon: Diamond, color: '#002f34' },
-    { id: '2', label: 'Automotive', icon: Car, color: '#0EA5E9' },
-    { id: '3', label: 'High-Tech', icon: Zap, color: '#F59E0B' },
-    { id: '4', label: 'Careers', icon: Briefcase, color: '#10B981' },
-    { id: '5', label: 'Mobiles', icon: Smartphone, color: '#EF4444' },
+  { id: '1', label: 'All Items', value: 'All' },
+  { id: '2', label: 'Vehicles', value: 'Vehicles' },
+  { id: '3', label: 'Properties', value: 'Properties' },
 ];
 
 export const HomeScreen = ({ navigation }: any) => {
-    const isFocused = useIsFocused();
-    const [products, setProducts] = React.useState<any[]>([]);
-    const [loading, setLoading] = React.useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
+  const isFocused = useIsFocused();
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState('All');
 
-    useEffect(() => {
-        const fetchListings = async () => {
-            try {
-                const allListings = await listingService.getFeaturedListings(20);
-                const productsList = allListings.filter(item => item.type === 'product');
-                setProducts(productsList);
-            } catch (error) {
-                console.error("Failed to fetch listings", error);
-            } finally {
-                setLoading(false);
-            }
-        };
+  useEffect(() => {
+    const fetchListings = async () => {
+      try {
+        setLoading(true);
+        let allListings = await listingService.getFeaturedListings(40);
 
-        if (isFocused) {
-            fetchListings();
+        // Auto-seed if empty
+        if (allListings.length === 0) {
+          console.log("No listings found, seeding demo data...");
+          await listingService.seedDemoData();
+          allListings = await listingService.getFeaturedListings(40);
         }
-    }, [isFocused]);
 
-    const renderHeader = () => (
-        <View className="px-5 pt-4 pb-2">
-            <MotiView
-                from={{ translateY: -20, opacity: 0 }}
-                animate={{ translateY: 0, opacity: 1 }}
-                transition={{ type: 'timing', duration: 800 }}
-                className="flex-row justify-between items-center"
-            >
-                <View>
-                    <Typography className="text-[12px] uppercase tracking-[4px] text-gray-400 font-bold mb-1">Welcome to</Typography>
-                    <Typography className="text-4xl font-black text-primary tracking-tighter">VENDO</Typography>
-                </View>
-                <TouchableOpacity className="w-12 h-12 rounded-full bg-white shadow-sm border border-gray-100 items-center justify-center">
-                    <UserCircle size={28} color="#002f34" strokeWidth={1.5} />
-                </TouchableOpacity>
-            </MotiView>
+        setListings(allListings);
+      } catch (error) {
+        console.error("Failed to fetch listings", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-            <GlassmorphismSearch
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-            />
-        </View>
-    );
+    if (isFocused) {
+      fetchListings();
+    }
+  }, [isFocused]);
 
-    const renderCategories = () => (
-        <View className="py-6">
-            <MotiView
-                from={{ opacity: 0, translateX: 50 }}
-                animate={{ opacity: 1, translateX: 0 }}
-                transition={{ delay: 300, duration: 600 }}
-            >
-                <View className="flex-row justify-between items-center px-6 mb-4">
-                    <Typography className="text-xl font-bold text-gray-900 tracking-tight">Categories</Typography>
-                    <TouchableOpacity>
-                        <Typography className="text-sm font-bold text-primary">Discover All</Typography>
-                    </TouchableOpacity>
-                </View>
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: 20 }}
-                >
-                    {CATEGORIES.map((item, index) => (
-                        <TouchableOpacity
-                            key={item.id}
-                            className="mr-5 items-center"
-                        >
-                            <View
-                                style={{ backgroundColor: `${item.color}10` }}
-                                className="w-16 h-16 rounded-[24px] justify-center items-center mb-2 border border-white"
-                            >
-                                <item.icon size={26} color={item.color} strokeWidth={1.2} />
-                            </View>
-                            <Typography className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{item.label}</Typography>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </MotiView>
-        </View>
-    );
+  const filteredListings = useMemo(() => {
+    let items = listings;
+    if (activeCategory !== 'All') {
+      items = items.filter((l: Listing) =>
+        l.category === activeCategory ||
+        (activeCategory === 'Vehicles' && l.category === 'Vehicles') ||
+        (activeCategory === 'Properties' && l.category === 'Real Estate')
+      );
+    }
+    return items;
+  }, [listings, activeCategory]);
 
-    const renderQuickStats = () => (
-        <View className="flex-row px-5 mb-6 gap-3">
-            <MotiView
-                from={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 400 }}
-                className="flex-1 bg-white p-4 rounded-[28px] border border-gray-100 shadow-sm"
-            >
-                <TrendingUp size={24} color="#002f34" />
-                <Typography className="text-[10px] uppercase font-bold text-gray-400 mt-2">New Since Yesterday</Typography>
-                <Typography className="text-xl font-bold text-gray-900">+128</Typography>
-            </MotiView>
-            <MotiView
-                from={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 500 }}
-                className="flex-1 bg-white p-4 rounded-[28px] border border-gray-100 shadow-sm"
-            >
-                <Clock size={24} color="#0EA5E9" />
-                <Typography className="text-[10px] uppercase font-bold text-gray-400 mt-2">Average Response</Typography>
-                <Typography className="text-xl font-bold text-gray-900">12 min</Typography>
-            </MotiView>
-        </View>
-    );
-
+  if (loading) {
     return (
-        <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-            <StatusBar barStyle="dark-content" />
-            <FlatList
-                data={products}
-                keyExtractor={(item) => item.id}
-                numColumns={2}
-                ListHeaderComponent={
-                    <>
-                        {renderHeader()}
-                        {renderCategories()}
-                        {renderQuickStats()}
-                        <View className="px-6 py-4 flex-row justify-between items-center">
-                            <Typography className="text-2xl font-bold text-gray-900 tracking-tight">Featured Collections</Typography>
-                            <Compass size={24} color="#002f34" />
-                        </View>
-                    </>
-                }
-                renderItem={({ item, index }) => (
-                    <MotiView
-                        from={{ opacity: 0, translateY: 50 }}
-                        animate={{ opacity: 1, translateY: 0 }}
-                        transition={{
-                            type: 'timing',
-                            duration: 700,
-                            delay: index * 100 + 600,
-                        }}
-                        style={{ flex: 1, maxWidth: '50%', paddingHorizontal: 10 }}
-                    >
-                        <PremiumProductCard
-                            title={item.title}
-                            price={item.price}
-                            image={item.image || (item.images && item.images[0]) || 'https://via.placeholder.com/200'}
-                            location={item.location || 'Malappuram'}
-                            onPress={() => navigation.navigate('ProductDetails', { product: item })}
-                        />
-                    </MotiView>
-                )}
-                contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 10 }}
-                showsVerticalScrollIndicator={false}
-            />
-        </SafeAreaView>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: BG_COLOR }}>
+        <ActivityIndicator color={PRIMARY_PURPLE} size="large" />
+        <Typography style={{ marginTop: 16, color: '#6B7280', fontWeight: '600', fontSize: 14 }}>Loading...</Typography>
+      </View>
     );
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: BG_COLOR }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }} />
+      <StatusBar barStyle="dark-content" />
+
+      <FlatList
+        data={filteredListings}
+        keyExtractor={(item) => item.id || Math.random().toString()}
+        numColumns={2}
+        ListHeaderComponent={
+          <>
+            {/* Header */}
+            <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16, backgroundColor: '#FFFFFF' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Typography style={{ fontSize: 28, fontWeight: '900', color: '#002f34', letterSpacing: -0.5 }}>Vendo</Typography>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <TouchableOpacity onPress={() => navigation.navigate('SearchTab')}>
+                    <Search size={24} color="#0F172A" strokeWidth={2} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => console.log('Notifications')}>
+                    <Bell size={24} color="#0F172A" strokeWidth={2} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            {/* Categories */}
+            <View style={{ paddingBottom: 16, paddingHorizontal: 20, backgroundColor: '#FFFFFF' }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 10 }}
+              >
+                {CATEGORIES.map((cat) => {
+                  const isActive = activeCategory === cat.value;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      onPress={() => setActiveCategory(cat.value)}
+                      style={{
+                        paddingHorizontal: 20,
+                        paddingVertical: 10,
+                        borderRadius: 24,
+                        backgroundColor: isActive ? '#1F2937' : '#F3F4F6',
+                      }}
+                    >
+                      <Typography style={{
+                        fontWeight: '600',
+                        fontSize: 14,
+                        color: isActive ? '#FFFFFF' : '#4B5563',
+                      }}>
+                        {cat.label}
+                      </Typography>
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={{
+                    paddingHorizontal: 20,
+                    paddingVertical: 10,
+                    borderRadius: 24,
+                    backgroundColor: PRIMARY_PURPLE,
+                  }}
+                >
+                  <Typography style={{ fontWeight: '600', fontSize: 14, color: '#FFFFFF' }}>
+                    See All
+                  </Typography>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+
+            {/* Promo Banner */}
+            <View style={{ paddingHorizontal: 20, paddingBottom: 16, backgroundColor: '#FFFFFF' }}>
+              <View style={{ borderRadius: 16, overflow: 'hidden', height: 128 }}>
+                <LinearGradient
+                  colors={['#2D3748', '#1A202C']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ flex: 1, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <View style={{ backgroundColor: '#F97316', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, marginBottom: 8 }}>
+                      <Typography style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>PROMO</Typography>
+                    </View>
+                    <Typography style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '900', marginBottom: 4 }}>Summer Sale</Typography>
+                    <Typography style={{ color: '#D1D5DB', fontSize: 12 }}>on all electronics</Typography>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Typography style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Up Up 50% off</Typography>
+                    <TouchableOpacity style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 }}>
+                      <Typography style={{ color: '#1F2937', fontWeight: '700', fontSize: 12 }}>Shop Now</Typography>
+                    </TouchableOpacity>
+                  </View>
+                </LinearGradient>
+              </View>
+            </View>
+
+            {/* Featured Title */}
+            <View style={{ paddingHorizontal: 20, paddingBottom: 12, paddingTop: 8, backgroundColor: '#FFFFFF' }}>
+              <Typography style={{ fontSize: 20, fontWeight: '900', color: '#0F172A' }}>Featured</Typography>
+            </View>
+          </>
+        }
+        renderItem={({ item }) => (
+          <View style={{ flex: 1, maxWidth: '50%', paddingHorizontal: 6, paddingVertical: 6 }}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate('ProductDetails', { product: item })}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                overflow: 'hidden',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
+            >
+              <View style={{ position: 'relative' }}>
+                <View style={{ width: '100%', height: 160, backgroundColor: '#F3F4F6' }}>
+                  <Image
+                    source={{ uri: item.images?.[0] || 'https://picsum.photos/200/300' }}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                </View>
+                <TouchableOpacity
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    width: 32,
+                    height: 32,
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 16,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 2,
+                  }}
+                >
+                  <Heart size={16} color="#9CA3AF" strokeWidth={2} />
+                </TouchableOpacity>
+              </View>
+              <View style={{ padding: 12 }}>
+                <Typography style={{ fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 2 }} numberOfLines={2}>
+                  {item.title}
+                </Typography>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <MapPin size={10} color="#9CA3AF" strokeWidth={2} />
+                  <Typography style={{ fontSize: 10, color: '#9CA3AF', marginLeft: 4 }} numberOfLines={1}>
+                    {item.location || 'Kochi'}
+                  </Typography>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+        ListEmptyComponent={
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 40 }}>
+            <Typography style={{ color: '#9CA3AF', textAlign: 'center', fontWeight: '500' }}>
+              No listings available
+            </Typography>
+          </View>
+        }
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        style={{ backgroundColor: '#FFFFFF' }}
+      />
+
+
+    </View>
+  );
 };

@@ -107,7 +107,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
             <PostTypeSelector
                 visible={isPostModalVisible}
                 onClose={() => setIsPostModalVisible(false)}
-                onSelect={handlePostTypeSelect}
+                onSelectType={handlePostTypeSelect}
             />
         </>
     );

@@ -187,195 +187,72 @@ export const listingService = {
             const sellerName = user?.displayName || 'Demo User';
 
             const demoListings: Omit<Listing, 'id' | 'createdAt'>[] = [
-                // Products
+                // User Request Specific Items
                 {
-                    title: 'Apple MacBook Pro 16"',
-                    description: 'M3 Max chip, 32GB RAM, 1TB SSD. Space Black. Barely used, comes with original box and apple care plus.',
-                    price: '2499',
-                    category: 'Electronics',
-                    images: ['https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=1000'],
+                    title: 'UX/UI Designer',
+                    description: 'We need a creative designer for our new startup. Remote friendly.',
+                    price: '$80k/yr',
+                    category: 'Jobs',
+                    images: ['https://images.unsplash.com/photo-1586717791821-3f44a5638d28?auto=format&fit=crop&q=80&w=1000'],
                     sellerId,
-                    sellerName,
-                    rating: 5,
-                    type: 'product',
-                    location: 'San Francisco, CA',
-                    condition: 'Used',
-                    enableChat: true,
-                    isBoosted: true,
-                    status: 'active',
-                    views: 452,
-                    chatsCount: 8
-                },
-                {
-                    title: 'Sony WH-1000XM5',
-                    description: 'Industry leading noise canceling headphones. Silver color. Brand new in box.',
-                    price: '348',
-                    category: 'Electronics',
-                    images: ['https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&q=80&w=1000'],
-                    sellerId,
-                    sellerName,
-                    rating: 4.8,
-                    type: 'product',
+                    sellerName: 'Creative Studio',
+                    rating: 0,
+                    type: 'job',
                     location: 'New York, NY',
                     condition: 'New',
                     enableChat: true,
                     status: 'active',
-                    views: 128,
-                    chatsCount: 3
+                    views: 1200,
+                    chatsCount: 5
                 },
                 {
-                    title: 'Herman Miller Aeron Chair',
-                    description: 'Size B, fully loaded. Graphite color. Perfect for home office.',
-                    price: '850',
-                    category: 'Furniture',
-                    images: ['https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?auto=format&fit=crop&q=80&w=1000'],
+                    title: 'Senior React Native Developer',
+                    description: 'Looking for an expert to build a marketplace app. Must know Expo and Firebase.',
+                    price: 'Remote',
+                    category: 'Jobs',
+                    images: ['https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&q=80&w=1000'],
                     sellerId,
-                    sellerName,
-                    rating: 4.9,
-                    type: 'product',
-                    location: 'Austin, TX',
-                    condition: 'Used',
+                    sellerName: 'Tech Corp',
+                    rating: 0,
+                    type: 'job',
+                    location: 'Remote',
+                    condition: 'New',
                     enableChat: true,
-                    status: 'sold',
-                    views: 890,
+                    status: 'active',
+                    views: 3500,
                     chatsCount: 15
                 },
                 {
-                    title: 'Vintage Denim Jacket',
-                    description: 'Classic 90s Levi jacket. Size L. Great fade and condition.',
-                    price: '120',
-                    category: 'Fashion',
-                    images: ['https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?auto=format&fit=crop&q=80&w=1000'],
+                    title: 'Professional Home Cleaning',
+                    description: 'Top rated cleaning service in Seattle. We use eco-friendly products.',
+                    price: '$50/hr',
+                    category: 'Services',
+                    images: ['https://images.unsplash.com/photo-1581579186913-45ac3e6e3dd2?auto=format&fit=crop&q=80&w=1000'],
                     sellerId,
-                    sellerName,
-                    rating: 4.5,
-                    type: 'product',
-                    location: 'Los Angeles, CA',
-                    condition: 'Used',
+                    sellerName: 'Clean Co',
+                    rating: 4.8,
+                    type: 'service',
+                    location: 'Seattle, WA',
                     enableChat: true,
                     status: 'active',
-                    views: 89,
-                    chatsCount: 1
+                    views: 890,
+                    chatsCount: 20
                 },
-                // Vehicles
-                {
-                    title: 'Tesla Model 3 Long Range',
-                    description: '2022 Model. White interior. Full Self Driving capability included. Low mileage.',
-                    price: '34,900',
-                    category: 'Vehicles',
-                    images: ['https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&q=80&w=1000'],
-                    sellerId,
-                    sellerName: 'AutoTrader',
-                    rating: 4.7,
-                    type: 'product',
-                    location: 'Miami, FL',
-                    condition: 'Used',
-                    enableChat: true,
-                    isBoosted: true,
-                    status: 'active',
-                    views: 1250,
-                    chatsCount: 42
-                },
-                {
-                    title: 'BMW M4 Competition',
-                    description: 'Brooklyn Grey. Carbon bucket seats. Track package. Absolute beast on the road.',
-                    price: '78,500',
-                    category: 'Vehicles',
-                    images: ['https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&q=80&w=1000'],
-                    sellerId,
-                    sellerName,
-                    rating: 5,
-                    type: 'product',
-                    location: 'Los Angeles, CA',
-                    condition: 'Used',
-                    enableChat: true,
-                    status: 'active',
-                    views: 940,
-                    chatsCount: 22
-                },
-                // Real Estate
                 {
                     title: 'Modern Downtown Loft',
-                    description: '1 Bed 1 Bath. High ceilings, exposed brick. In the heart of the arts district.',
+                    description: 'Beautiful loft in the heart of Chicago. Close to all amenities.',
                     price: '2800/mo',
                     category: 'Real Estate',
                     images: ['https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&q=80&w=1000'],
                     sellerId,
                     sellerName: 'Urban Living',
-                    rating: 4.8,
+                    rating: 4.9,
                     type: 'product',
                     location: 'Chicago, IL',
                     enableChat: true,
                     status: 'active',
-                    views: 560,
-                    chatsCount: 11
-                },
-                // Services
-                {
-                    title: 'Professional Home Cleaning',
-                    description: 'Deep cleaning service for 2-3 bedroom apartments. Eco-friendly products used.',
-                    price: '150',
-                    category: 'Services',
-                    images: ['https://images.unsplash.com/photo-1581578731117-104f2a896572?auto=format&fit=crop&q=80&w=1000'],
-                    sellerId,
-                    sellerName: 'Sparkle Clean',
-                    rating: 4.9,
-                    type: 'service',
-                    location: 'Seattle, WA',
-                    enableChat: true,
-                    status: 'active',
-                    views: 310,
-                    chatsCount: 5
-                },
-                // Jobs
-                {
-                    title: 'Senior React Native Developer',
-                    description: 'We are looking for an experienced developer to build our mobile marketplace. Must verify expertise in Reanimated and Firebase.',
-                    price: '$120k - $160k',
-                    category: 'Jobs',
-                    images: ['https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1000'],
-                    sellerId,
-                    sellerName: 'TechStart Inc.',
-                    rating: 0,
-                    type: 'job',
-                    location: 'Remote',
-                    condition: 'New',
-                    jobType: 'Full Time',
-                    salaryRange: '$120k - $160k',
-                    skills: ['React Native', 'TypeScript', 'Firebase'],
-                    experienceLevel: 'Senior',
-                    companyName: 'TechStart Inc.',
-                    workMode: 'Remote',
-                    contactEmail: 'careers@techstart.io',
-                    enableChat: true,
-                    isBoosted: true,
-                    status: 'active',
-                    views: 2450,
-                    applicantsCount: 45
-                },
-                {
-                    title: 'UX/UI Designer',
-                    description: 'Design beautiful interfaces for our next gen crypto wallet. Figma mastery required.',
-                    price: '$90k - $130k',
-                    category: 'Jobs',
-                    images: ['https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&q=80&w=1000'],
-                    sellerId,
-                    sellerName: 'CryptoFlow',
-                    rating: 0,
-                    type: 'job',
-                    location: 'New York, NY',
-                    condition: 'New',
-                    jobType: 'Full Time',
-                    salaryRange: '$90k - $130k',
-                    skills: ['Figma', 'UI Design', 'Prototyping'],
-                    experienceLevel: 'Mid Level',
-                    companyName: 'CryptoFlow',
-                    workMode: 'Hybrid',
-                    contactEmail: 'design@cryptoflow.io',
-                    enableChat: false,
-                    status: 'active',
-                    views: 1800,
-                    applicantsCount: 28
+                    views: 5000,
+                    chatsCount: 45
                 }
             ];
 
@@ -425,7 +302,7 @@ export const listingService = {
         console.log('=== ADD TO WISHLIST SERVICE ===');
         console.log('User ID:', userId);
         console.log('Listing ID:', listingId);
-        
+
         try {
             const wishlistRef = doc(db, 'users', userId, 'wishlist', listingId);
             await setDoc(wishlistRef, {
@@ -447,7 +324,7 @@ export const listingService = {
         console.log('=== REMOVE FROM WISHLIST SERVICE ===');
         console.log('User ID:', userId);
         console.log('Listing ID:', listingId);
-        
+
         try {
             const wishlistRef = doc(db, 'users', userId, 'wishlist', listingId);
             await deleteDoc(wishlistRef);
@@ -466,7 +343,7 @@ export const listingService = {
         console.log('=== CHECK WISHLIST SERVICE ===');
         console.log('User ID:', userId);
         console.log('Listing ID:', listingId);
-        
+
         try {
             const wishlistRef = doc(db, 'users', userId, 'wishlist', listingId);
             const docSnap = await getDoc(wishlistRef);
@@ -484,7 +361,7 @@ export const listingService = {
     getWishlistItems: async (userId: string) => {
         console.log('=== GET WISHLIST ITEMS SERVICE ===');
         console.log('User ID:', userId);
-        
+
         try {
             const wishlistRef = collection(db, 'users', userId, 'wishlist');
             const querySnapshot = await getDocs(wishlistRef);
@@ -493,10 +370,10 @@ export const listingService = {
             const itemPromises = querySnapshot.docs.map(async (wishlistDoc) => {
                 const listingId = wishlistDoc.data().listingId;
                 console.log('Fetching listing:', listingId);
-                
+
                 const listingRef = doc(db, 'listings', listingId);
                 const listingSnap = await getDoc(listingRef);
-                
+
                 if (listingSnap.exists()) {
                     console.log('✅ Listing found:', listingId);
                     return { id: listingSnap.id, ...listingSnap.data() } as Listing;

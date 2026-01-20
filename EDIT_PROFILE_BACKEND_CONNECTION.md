@@ -163,7 +163,7 @@ User ID: abc123
 Name: leo
 Phone: 7736472576
 Bio: freelancer
-Location: kochi
+Location: 
 
 📤 Step 1: Updating Firebase Auth profile...
 ✅ Firebase Auth updated successfully
@@ -184,7 +184,7 @@ User ID: abc123
 ✅ Profile fetched from database: {
   displayName: "leo",
   phone: "7736472576",
-  location: "kochi",
+  location: "",
   bio: "freelancer"
 }
 ```
@@ -211,7 +211,7 @@ Data: { displayName: "leo", phone: "7736472576", ... }
 2. **Fill in the form:**
    - Full Name: leo
    - Phone: 7736472576
-   - Location: kochi
+   - Location: 
    - Bio: freelancer
 
 3. **Click "Save Changes"**
