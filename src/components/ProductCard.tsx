@@ -24,39 +24,70 @@ export const ProductCard = ({ title, price, image, location, type, onPress }: Pr
         <TouchableOpacity
             activeOpacity={0.9}
             onPress={onPress}
-            className="bg-white rounded-[32px] mb-5 overflow-hidden shadow-sm border border-gray-100"
-            style={{ width: (width / 2) - 30 }}
+            style={{
+                width: '100%',
+                backgroundColor: '#FFFFFF',
+                borderRadius: 12,
+                marginBottom: 16,
+                borderWidth: 1,
+                borderColor: '#F1F5F9',
+                overflow: 'hidden',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.03,
+                shadowRadius: 10,
+                elevation: 2
+            }}
         >
-            <View className="relative">
+            <View style={{ position: 'relative' }}>
                 <Image
                     source={{ uri: image }}
-                    style={{ width: '100%', height: 165 }}
+                    style={{ width: '100%', height: 140 }}
                     className="bg-[#F9FAFB]"
-                    resizeMode="contain"
+                    resizeMode="cover"
                 />
                 <TouchableOpacity
-                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 items-center justify-center shadow-sm"
+                    style={{
+                        position: 'absolute',
+                        top: 10,
+                        right: 10,
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        backgroundColor: 'rgba(255,255,255,0.9)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 4,
+                        elevation: 3
+                    }}
                 >
-                    <Heart size={16} color="#000" strokeWidth={1.5} />
+                    <Heart size={16} color="#002f34" strokeWidth={2} />
                 </TouchableOpacity>
             </View>
 
-            <View className="p-3">
-                {type === 'job' ? (
-                    <Typography className="text-lg font-black text-[#1A1A1A] mb-1">Company Hire</Typography>
-                ) : (
-                    <Typography className="text-lg font-black text-[#1A1A1A] mb-1">₹ {displayPrice}</Typography>
-                )}
+            <View style={{ padding: 12 }}>
+                <Typography
+                    style={{ color: '#002f34', fontSize: 16, fontWeight: '900', marginBottom: 4 }}
+                    numberOfLines={1}
+                >
+                    {type === 'job' ? price : `₹${displayPrice}`}
+                </Typography>
 
-                <Typography className="text-sm font-medium text-gray-900 leading-tight mb-2" numberOfLines={2}>
+                <Typography
+                    style={{ color: '#444', fontSize: 13, fontWeight: '600', marginBottom: 8, lineHeight: 18 }}
+                    numberOfLines={2}
+                >
                     {title}
                 </Typography>
 
-                <View className="flex-row items-center justify-between mt-auto">
-                    <View className="flex-row items-center flex-1 mr-2">
-                        <MapPin size={12} color="#6B7280" strokeWidth={2} />
-                        <Typography className="text-[10px] text-gray-500 ml-1" numberOfLines={1}>{location}</Typography>
-                    </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <MapPin size={10} color="#94A3B8" strokeWidth={2} />
+                    <Typography style={{ color: '#94A3B8', fontSize: 10, marginLeft: 4, fontWeight: '600' }} numberOfLines={1}>
+                        {location}
+                    </Typography>
                 </View>
             </View>
         </TouchableOpacity>

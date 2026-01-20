@@ -188,8 +188,8 @@ const TabNavigator = () => {
                             'ProfileTab': 4,
                         };
 
-                        if (routeName && routeToIndex[routeName] !== undefined) {
-                            setActiveTabIndex(routeToIndex[routeName]);
+                        if (routeName && routeToIndex[routeName as keyof typeof routeToIndex] !== undefined) {
+                            setActiveTabIndex(routeToIndex[routeName as keyof typeof routeToIndex]);
                         }
                     }
                 }}

@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
 import { PostTypeSelector } from '../components/post/PostTypeSelector';
 import { Home, Search, Plus, MessageCircle, User } from 'lucide-react-native';
-import { AnimatedTabBar } from '../components/common/AnimatedTabBar';
+import { LiquidTabBar } from '../components/common/LiquidTabBar';
 
 // Screens
 import { HomeScreen } from '../screens/HomeScreen';
@@ -32,7 +32,7 @@ const Stack = createNativeStackNavigator();
 const CustomTabBar = ({ state, descriptors, navigation }: any) => {
     const [isPostModalVisible, setIsPostModalVisible] = useState(false);
 
-    const handlePostTypeSelect = (type: 'product' | 'job') => {
+    const handlePostTypeSelect = (type: 'product' | 'job' | 'service') => {
         setIsPostModalVisible(false);
         if (type === 'job') {
             navigation.navigate('PostJob');
@@ -99,7 +99,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
 
     return (
         <>
-            <AnimatedTabBar
+            <LiquidTabBar
                 tabs={tabs}
                 activeIndex={state.index}
                 onTabPress={handleTabPress}
@@ -107,7 +107,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
             <PostTypeSelector
                 visible={isPostModalVisible}
                 onClose={() => setIsPostModalVisible(false)}
-                onSelectType={handlePostTypeSelect}
+                onSelect={handlePostTypeSelect}
             />
         </>
     );

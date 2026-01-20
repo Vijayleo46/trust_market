@@ -117,7 +117,7 @@ export const PostScreen = ({ route, navigation }: any) => {
 
             console.log('✅ User verified, starting upload...');
             console.log('Uploading', images.length, 'images...');
-            
+
             const imageUrls = await storageService.uploadMultipleImages(images, 'listings');
             console.log('✅ Images uploaded successfully:', imageUrls);
 
@@ -144,10 +144,11 @@ export const PostScreen = ({ route, navigation }: any) => {
 
             setSuccess(true);
             console.log('Success state set to true');
-            
+
+            // Success Alert with navigation options
             Alert.alert(
-                '🎉 Success!', 
-                `Your product "${title}" has been published successfully!\n\nListing ID: ${listingId}`,
+                '🎉 Success!',
+                `Your product "${title}" has been published successfully!`,
                 [
                     {
                         text: 'View in My Listings',
@@ -165,7 +166,10 @@ export const PostScreen = ({ route, navigation }: any) => {
                     }
                 ]
             );
-            
+
+            // Clean up loading state
+            setLoading(false);
+
             // Reset form after 3 seconds
             setTimeout(() => {
                 setTitle('');
@@ -184,9 +188,9 @@ export const PostScreen = ({ route, navigation }: any) => {
             console.error('Error message:', error.message);
             console.error('Error code:', error.code);
             console.error('Error stack:', error.stack);
-            
+
             let errorMessage = 'Failed to publish listing.';
-            
+
             if (error.code === 'storage/unauthorized') {
                 errorMessage = 'Storage permission denied. Please check Firebase Storage rules.';
             } else if (error.code === 'permission-denied') {
@@ -194,7 +198,7 @@ export const PostScreen = ({ route, navigation }: any) => {
             } else if (error.message) {
                 errorMessage = error.message;
             }
-            
+
             Alert.alert('❌ Error', errorMessage + '\n\nCheck console for details.');
         } finally {
             setLoading(false);
@@ -223,7 +227,7 @@ export const PostScreen = ({ route, navigation }: any) => {
                     <ArrowLeft size={24} color="#002f34" strokeWidth={2} />
                 </TouchableOpacity>
                 <Typography variant="h2" style={{ color: '#002f34', fontWeight: '700', fontSize: 20 }}>Sell Your Product</Typography>
-                <TouchableOpacity style={styles.textBtn}>
+                <TouchableOpacity onPress={handlePublish} style={styles.textBtn}>
                     <Typography style={{ color: '#002f34', fontWeight: '600' }}>Save</Typography>
                 </TouchableOpacity>
             </View>

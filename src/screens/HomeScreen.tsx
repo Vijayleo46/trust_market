@@ -1,19 +1,25 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, ScrollView, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, Image } from 'react-native';
 import { Typography } from '../components/common/Typography';
-import { Search, MapPin, Bell, Heart, Home, MessageCircle, User, Plus } from 'lucide-react-native';
+import { Search, MapPin, Bell, Heart, Home, MessageCircle, User, Plus, ChevronLeft, Car, Smartphone, Briefcase, Settings } from 'lucide-react-native';
 import { listingService, Listing } from '../services/listingService';
 import { useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { View as MotiView } from 'moti';
+import { ProductCard } from '../components/ProductCard';
+import { auth } from '../core/config/firebase';
+import { userService, UserProfile } from '../services/userService';
 
-const PRIMARY_PURPLE = '#9D8BFF';
-const BG_COLOR = '#F5F5F5';
+const OLX_TEAL = '#002f34';
 
 const CATEGORIES = [
-  { id: '1', label: 'All Items', value: 'All' },
-  { id: '2', label: 'Vehicles', value: 'Vehicles' },
-  { id: '3', label: 'Properties', value: 'Properties' },
+  { id: '1', label: 'All', value: 'All', icon: Home },
+  { id: '2', label: 'Cars', value: 'Vehicles', icon: Car },
+  { id: '3', label: 'Properties', value: 'Real Estate', icon: Home },
+  { id: '4', label: 'Mobile', value: 'Mobiles', icon: Smartphone },
+  { id: '5', label: 'Jobs', value: 'Jobs', icon: Briefcase },
+  { id: '6', label: 'Services', value: 'Services', icon: Settings },
 ];
 
 export const HomeScreen = ({ navigation }: any) => {
@@ -21,18 +27,38 @@ export const HomeScreen = ({ navigation }: any) => {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [location, setLocation] = useState('Kochi, Kerala');
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          const profile = await userService.getProfile(user.uid);
+          if (profile) {
+            setUserProfile(profile);
+          }
+        } catch (error) {
+          console.error("Error fetching user profile", error);
+        }
+      }
+    };
+
+    if (isFocused) {
+      fetchUserProfile();
+    }
+  }, [isFocused]);
 
   useEffect(() => {
     const fetchListings = async () => {
       try {
         setLoading(true);
-        let allListings = await listingService.getFeaturedListings(40);
+        let allListings = await listingService.getFeaturedListings(60);
 
-        // Auto-seed if empty
         if (allListings.length === 0) {
-          console.log("No listings found, seeding demo data...");
           await listingService.seedDemoData();
-          allListings = await listingService.getFeaturedListings(40);
+          allListings = await listingService.getFeaturedListings(60);
         }
 
         setListings(allListings);
@@ -48,200 +74,223 @@ export const HomeScreen = ({ navigation }: any) => {
     }
   }, [isFocused]);
 
-  const filteredListings = useMemo(() => {
-    let items = listings;
-    if (activeCategory !== 'All') {
-      items = items.filter((l: Listing) =>
+  const sections = useMemo(() => {
+    const products = listings.filter(l => l.type !== 'job');
+    const jobs = listings.filter(l => l.type === 'job');
+
+    const filterByCat = (items: Listing[]) => {
+      if (activeCategory === 'All') return items;
+      return items.filter(l =>
         l.category === activeCategory ||
         (activeCategory === 'Vehicles' && l.category === 'Vehicles') ||
-        (activeCategory === 'Properties' && l.category === 'Real Estate')
+        (activeCategory === 'Real Estate' && l.category === 'Real Estate')
       );
-    }
-    return items;
+    };
+
+    return {
+      products: filterByCat(products).slice(0, 10),
+      jobs: filterByCat(jobs).slice(0, 10),
+      all: filterByCat(listings)
+    };
   }, [listings, activeCategory]);
+
+  const renderSectionHeader = (title: string, onSeeAll?: () => void) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 32, paddingBottom: 12 }}>
+      <Typography style={{ color: '#002f34', fontSize: 20, fontWeight: '900', textTransform: 'uppercase', letterSpacing: -0.5 }}>
+        {title}
+      </Typography>
+      {onSeeAll && (
+        <TouchableOpacity onPress={onSeeAll}>
+          <Typography style={{ color: '#002f34', fontSize: 14, fontWeight: '700', opacity: 0.6 }}>See All</Typography>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: BG_COLOR }}>
-        <ActivityIndicator color={PRIMARY_PURPLE} size="large" />
-        <Typography style={{ marginTop: 16, color: '#6B7280', fontWeight: '600', fontSize: 14 }}>Loading...</Typography>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FAFAFA' }}>
+        <ActivityIndicator color={OLX_TEAL} size="large" />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG_COLOR }}>
+    <View style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }} />
       <StatusBar barStyle="dark-content" />
 
-      <FlatList
-        data={filteredListings}
-        keyExtractor={(item) => item.id || Math.random().toString()}
-        numColumns={2}
-        ListHeaderComponent={
-          <>
-            {/* Header */}
-            <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16, backgroundColor: '#FFFFFF' }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <Typography style={{ fontSize: 28, fontWeight: '900', color: '#002f34', letterSpacing: -0.5 }}>Vendo</Typography>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <TouchableOpacity onPress={() => navigation.navigate('SearchTab')}>
-                    <Search size={24} color="#0F172A" strokeWidth={2} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => console.log('Notifications')}>
-                    <Bell size={24} color="#0F172A" strokeWidth={2} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            {/* Categories */}
-            <View style={{ paddingBottom: 16, paddingHorizontal: 20, backgroundColor: '#FFFFFF' }}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 10 }}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 120 }}
+      >
+        {/* Header */}
+        <View style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Typography style={{ fontSize: 28, fontWeight: '900', color: '#002f34', letterSpacing: -1 }}>Vendo</Typography>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <TouchableOpacity onPress={() => navigation.navigate('SearchTab')}>
+                <Search size={24} color="#0F172A" />
+              </TouchableOpacity>
+              <TouchableOpacity>
+                <Bell size={24} color="#0F172A" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ProfileTab')}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: '#F1F5F9',
+                  overflow: 'hidden',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0'
+                }}
               >
-                {CATEGORIES.map((cat) => {
-                  const isActive = activeCategory === cat.value;
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      onPress={() => setActiveCategory(cat.value)}
-                      style={{
-                        paddingHorizontal: 20,
-                        paddingVertical: 10,
-                        borderRadius: 24,
-                        backgroundColor: isActive ? '#1F2937' : '#F3F4F6',
-                      }}
-                    >
-                      <Typography style={{
-                        fontWeight: '600',
-                        fontSize: 14,
-                        color: isActive ? '#FFFFFF' : '#4B5563',
-                      }}>
-                        {cat.label}
-                      </Typography>
-                    </TouchableOpacity>
-                  );
-                })}
+                <Image
+                  source={{ uri: userProfile?.photoURL || auth.currentUser?.photoURL || 'https://i.pravatar.cc/150?u=default' }}
+                  style={{ width: '100%', height: '100%' }}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <TouchableOpacity className="flex-row items-center">
+            <MapPin size={18} color={OLX_TEAL} />
+            <Typography style={{ color: '#0F172A', fontSize: 14, fontWeight: '700', marginLeft: 6 }}>{location}</Typography>
+            <View style={{ transform: [{ rotate: '90deg' }], marginLeft: 4 }}>
+              <ChevronLeft size={14} color="#0F172A" />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Categories */}
+        <View style={{ backgroundColor: '#FFFFFF', paddingBottom: 16 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+          >
+            {CATEGORIES.map((cat) => {
+              const isActive = activeCategory === cat.value;
+              const Icon = cat.icon;
+              return (
                 <TouchableOpacity
-                  style={{
-                    paddingHorizontal: 20,
-                    paddingVertical: 10,
-                    borderRadius: 24,
-                    backgroundColor: PRIMARY_PURPLE,
-                  }}
+                  key={cat.id}
+                  onPress={() => setActiveCategory(cat.value)}
+                  style={{ alignItems: 'center', width: 70 }}
                 >
-                  <Typography style={{ fontWeight: '600', fontSize: 14, color: '#FFFFFF' }}>
-                    See All
+                  <MotiView
+                    from={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: isActive ? 1.1 : 1, opacity: 1 }}
+                    style={{
+                      width: 60,
+                      height: 60,
+                      borderRadius: 30,
+                      backgroundColor: isActive ? '#002f34' : '#F8FAFB',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 6,
+                      borderWidth: 1,
+                      borderColor: isActive ? '#002f34' : '#F1F5F9',
+                      shadowColor: isActive ? '#002f34' : '#000',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: isActive ? 0.2 : 0.05,
+                      shadowRadius: 8,
+                      elevation: isActive ? 4 : 1
+                    }}
+                  >
+                    <Icon size={24} color={isActive ? '#FFFFFF' : '#002f34'} />
+                  </MotiView>
+                  <Typography style={{ fontSize: 10, fontWeight: '800', color: isActive ? '#002f34' : '#64748B', textAlign: 'center' }}>
+                    {cat.label}
                   </Typography>
                 </TouchableOpacity>
-              </ScrollView>
-            </View>
+              );
+            })}
+          </ScrollView>
+        </View>
 
-            {/* Promo Banner */}
-            <View style={{ paddingHorizontal: 20, paddingBottom: 16, backgroundColor: '#FFFFFF' }}>
-              <View style={{ borderRadius: 16, overflow: 'hidden', height: 128 }}>
-                <LinearGradient
-                  colors={['#2D3748', '#1A202C']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{ flex: 1, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <View style={{ backgroundColor: '#F97316', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, marginBottom: 8 }}>
-                      <Typography style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>PROMO</Typography>
-                    </View>
-                    <Typography style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '900', marginBottom: 4 }}>Summer Sale</Typography>
-                    <Typography style={{ color: '#D1D5DB', fontSize: 12 }}>on all electronics</Typography>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Typography style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Up Up 50% off</Typography>
-                    <TouchableOpacity style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 }}>
-                      <Typography style={{ color: '#1F2937', fontWeight: '700', fontSize: 12 }}>Shop Now</Typography>
-                    </TouchableOpacity>
-                  </View>
-                </LinearGradient>
-              </View>
-            </View>
+        {/* Search Bar - Premium Glass Effect */}
+        <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('SearchTab')}
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 16,
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1.5,
+              borderColor: '#002f34',
+              shadowColor: '#002f34',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.1,
+              shadowRadius: 15,
+              elevation: 6
+            }}
+          >
+            <Search size={22} color={OLX_TEAL} strokeWidth={2.5} />
+            <Typography style={{ color: '#94A3B8', fontSize: 16, marginLeft: 12, fontWeight: '600', fontStyle: 'italic' }}>Find cars, jobs, and more...</Typography>
+          </TouchableOpacity>
+        </View>
 
-            {/* Featured Title */}
-            <View style={{ paddingHorizontal: 20, paddingBottom: 12, paddingTop: 8, backgroundColor: '#FFFFFF' }}>
-              <Typography style={{ fontSize: 20, fontWeight: '900', color: '#0F172A' }}>Featured</Typography>
-            </View>
-          </>
-        }
-        renderItem={({ item }) => (
-          <View style={{ flex: 1, maxWidth: '50%', paddingHorizontal: 6, paddingVertical: 6 }}>
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => navigation.navigate('ProductDetails', { product: item })}
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
-                overflow: 'hidden',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.05,
-                shadowRadius: 8,
-                elevation: 2,
-              }}
+        {/* Jobs Section */}
+        {sections.jobs.length > 0 && (activeCategory === 'All' || activeCategory === 'Jobs') && (
+          <View>
+            {renderSectionHeader('Premium Jobs', () => console.log('See All Jobs'))}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
             >
-              <View style={{ position: 'relative' }}>
-                <View style={{ width: '100%', height: 160, backgroundColor: '#F3F4F6' }}>
-                  <Image
-                    source={{ uri: item.images?.[0] || 'https://picsum.photos/200/300' }}
-                    style={{ width: '100%', height: '100%' }}
-                    resizeMode="cover"
-                  />
-                </View>
-                <TouchableOpacity
-                  style={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    width: 32,
-                    height: 32,
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 16,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 2,
-                  }}
+              {sections.jobs.map((item, index) => (
+                <MotiView
+                  key={item.id}
+                  from={{ opacity: 0, translateX: 50 }}
+                  animate={{ opacity: 1, translateX: 0 }}
+                  transition={{ type: 'spring', delay: index * 100 }}
+                  style={{ width: 180 }}
                 >
-                  <Heart size={16} color="#9CA3AF" strokeWidth={2} />
-                </TouchableOpacity>
-              </View>
-              <View style={{ padding: 12 }}>
-                <Typography style={{ fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 2 }} numberOfLines={2}>
-                  {item.title}
-                </Typography>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                  <MapPin size={10} color="#9CA3AF" strokeWidth={2} />
-                  <Typography style={{ fontSize: 10, color: '#9CA3AF', marginLeft: 4 }} numberOfLines={1}>
-                    {item.location || 'Kochi'}
-                  </Typography>
-                </View>
-              </View>
-            </TouchableOpacity>
+                  <ProductCard
+                    title={item.title}
+                    price={item.price}
+                    image={item.images[0]}
+                    location={item.location}
+                    type="job"
+                    onPress={() => navigation.navigate('ProductDetails', { product: item })}
+                  />
+                </MotiView>
+              ))}
+            </ScrollView>
           </View>
         )}
-        ListEmptyComponent={
-          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 40 }}>
-            <Typography style={{ color: '#9CA3AF', textAlign: 'center', fontWeight: '500' }}>
-              No listings available
-            </Typography>
-          </View>
-        }
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-        style={{ backgroundColor: '#FFFFFF' }}
-      />
 
+        {/* Products Section */}
+        {sections.products.length > 0 && (activeCategory === 'All' || activeCategory !== 'Jobs') && (
+          <View style={{ paddingHorizontal: 16 }}>
+            {renderSectionHeader('Fresh Recommendations', () => console.log('See All Products'))}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+              {sections.products.map((item, index) => (
+                <MotiView
+                  key={item.id}
+                  from={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: 'spring', delay: index * 150 }}
+                  style={{ width: '48%' }}
+                >
+                  <ProductCard
+                    {...item}
+                    image={item.images[0]}
+                    onPress={() => navigation.navigate('ProductDetails', { product: item })}
+                  />
+                </MotiView>
+              ))}
+            </View>
+          </View>
+        )}
+      </ScrollView>
 
     </View>
   );

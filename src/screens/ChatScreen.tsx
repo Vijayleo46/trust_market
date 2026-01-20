@@ -5,9 +5,70 @@ import { useTheme } from '../theme/ThemeContext';
 import { Typography } from '../components/common/Typography';
 import { Search, MoreHorizontal, MessageSquare, Bell } from 'lucide-react-native';
 import { chatService, ChatThread } from '../services/chatService';
+import { userService } from '../services/userService';
 import { auth } from '../core/config/firebase';
 
 const { width } = Dimensions.get('window');
+
+const ChatListItem = ({ item, index, navigation }: { item: ChatThread, index: number, navigation: any }) => {
+    const [otherProfile, setOtherProfile] = useState<any>(null);
+    const otherUserId = item.participants.find(id => id !== auth.currentUser?.uid);
+
+    useEffect(() => {
+        if (otherUserId) {
+            userService.getProfile(otherUserId).then(profile => {
+                if (profile) setOtherProfile(profile);
+            });
+        }
+    }, [otherUserId]);
+
+    const title = otherProfile?.displayName || item.participantDetails?.[otherUserId || '']?.name || 'Chat';
+    const avatar = otherProfile?.photoURL || item.participantDetails?.[otherUserId || '']?.avatar || 'https://i.pravatar.cc/150?u=default';
+    const time = item.lastMessageAt ? new Date(item.lastMessageAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now';
+
+    return (
+        <Animated.View entering={FadeInRight.delay(index * 50 + 100).springify()}>
+            <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('ChatRoom', {
+                    chatId: item.id,
+                    otherName: title,
+                    otherAvatar: avatar,
+                    listingTitle: item.listingTitle,
+                    listingId: item.listingId,
+                })}
+                style={styles.chatCard}
+            >
+                <View style={styles.avatarContainer}>
+                    <Image source={{ uri: avatar }} style={styles.avatar} />
+                    <View style={styles.onlineIndicator} />
+                </View>
+
+                <View style={styles.cardContent}>
+                    <View style={styles.cardTopRow}>
+                        <Typography variant="bodyMedium" style={{ fontWeight: '600', fontSize: 16, color: '#000' }}>
+                            {title}
+                        </Typography>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            {item.listingTitle && (
+                                <Typography variant="bodySmall" style={{ fontSize: 10, color: '#6366F1', marginRight: 8, fontStyle: 'italic' }}>
+                                    {item.listingTitle}
+                                </Typography>
+                            )}
+                            <Typography variant="bodySmall" style={{ fontSize: 12, color: '#8E8E93' }}>
+                                {time}
+                            </Typography>
+                        </View>
+                    </View>
+
+                    <Typography variant="bodySmall" color="#8E8E93" numberOfLines={1} style={{ marginTop: 2, fontSize: 14 }}>
+                        {item.lastMessage || "Tap to start chatting"}
+                    </Typography>
+                </View>
+            </TouchableOpacity>
+        </Animated.View>
+    );
+};
 
 export const ChatScreen = ({ navigation }: any) => {
     const { theme, spacing, isDark } = useTheme();
@@ -19,7 +80,7 @@ export const ChatScreen = ({ navigation }: any) => {
     useEffect(() => {
         console.log('=== CHAT SCREEN MOUNTED ===');
         const user = auth.currentUser;
-        
+
         if (!user) {
             console.log('❌ No user logged in');
             setLoading(false);
@@ -28,7 +89,7 @@ export const ChatScreen = ({ navigation }: any) => {
 
         console.log('✅ User logged in:', user.uid, user.displayName);
         console.log('Subscribing to chats...');
-        
+
         const unsubscribe = chatService.subscribeToUserChats(user.uid, (data) => {
             console.log('=== CHATS RECEIVED ===');
             console.log('Total chats:', data.length);
@@ -65,12 +126,12 @@ export const ChatScreen = ({ navigation }: any) => {
     console.log('Job chats:', jobChats.length);
 
     const currentChats = activeTab === 'products' ? productChats : jobChats;
-    
+
     const filteredChats = currentChats.filter(chat => {
-        const otherUser = chat.participantDetails
-            ? (Object.values(chat.participantDetails) as { name: string }[]).find(p => p.name !== auth.currentUser?.displayName)
-            : null;
-        return otherUser?.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const otherUserId = chat.participants.find(id => id !== auth.currentUser?.uid);
+        const otherUser = chat.participantDetails?.[otherUserId || ''];
+        if (!otherUser) return true; // Show it anyway if we can't find details
+        return otherUser.name.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
     return (
@@ -88,8 +149,8 @@ export const ChatScreen = ({ navigation }: any) => {
                     style={[styles.tab, activeTab === 'products' && styles.activeTab]}
                     onPress={() => setActiveTab('products')}
                 >
-                    <Typography 
-                        variant="bodyMedium" 
+                    <Typography
+                        variant="bodyMedium"
                         style={[
                             styles.tabText,
                             activeTab === 'products' && styles.activeTabText
@@ -102,7 +163,7 @@ export const ChatScreen = ({ navigation }: any) => {
                     style={[styles.tab, activeTab === 'jobs' && styles.activeTab]}
                     onPress={() => setActiveTab('jobs')}
                 >
-                    <Typography 
+                    <Typography
                         variant="bodyMedium"
                         style={[
                             styles.tabText,
@@ -131,49 +192,9 @@ export const ChatScreen = ({ navigation }: any) => {
                         </Typography>
                     </Animated.View>
                 }
-                renderItem={({ item, index }) => {
-                    const otherUser = item.participantDetails
-                        ? (Object.values(item.participantDetails) as { name: string, avatar: string }[]).find(p => p.name !== auth.currentUser?.displayName)
-                        : null;
-
-                    const title = otherUser?.name || 'Chat';
-                    const avatar = otherUser?.avatar || 'https://i.pravatar.cc/150?u=default';
-                    const time = item.lastMessageAt ? new Date(item.lastMessageAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now';
-
-                    return (
-                        <Animated.View entering={FadeInRight.delay(index * 50 + 100).springify()}>
-                            <TouchableOpacity
-                                activeOpacity={0.7}
-                                onPress={() => navigation.navigate('ChatRoom', {
-                                    chatId: item.id,
-                                    otherName: title,
-                                    otherAvatar: avatar
-                                })}
-                                style={styles.chatCard}
-                            >
-                                <View style={styles.avatarContainer}>
-                                    <Image source={{ uri: avatar }} style={styles.avatar} />
-                                    <View style={styles.onlineIndicator} />
-                                </View>
-
-                                <View style={styles.cardContent}>
-                                    <View style={styles.cardTopRow}>
-                                        <Typography variant="bodyMedium" style={{ fontWeight: '600', fontSize: 16, color: '#000' }}>
-                                            {title}
-                                        </Typography>
-                                        <Typography variant="bodySmall" style={{ fontSize: 12, color: '#8E8E93' }}>
-                                            {time}
-                                        </Typography>
-                                    </View>
-
-                                    <Typography variant="bodySmall" color="#8E8E93" numberOfLines={1} style={{ marginTop: 2, fontSize: 14 }}>
-                                        {item.lastMessage || "Tap to start chatting"}
-                                    </Typography>
-                                </View>
-                            </TouchableOpacity>
-                        </Animated.View>
-                    );
-                }}
+                renderItem={({ item, index }) => (
+                    <ChatListItem item={item} index={index} navigation={navigation} />
+                )}
             />
         </View>
     );
@@ -232,7 +253,7 @@ const styles = StyleSheet.create({
         color: '#6B7280',
     },
     activeTabText: {
-        color: '#1F2937',
+        color: '#002f34',
     },
     searchContainer: {
         paddingHorizontal: 20,
@@ -250,7 +271,7 @@ const styles = StyleSheet.create({
         flex: 1,
         marginLeft: 10,
         fontSize: 14,
-        color: '#1F2937',
+        color: '#002f34',
     },
     chatCard: {
         flexDirection: 'row',
@@ -259,6 +280,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         marginHorizontal: 0,
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#F3F4F6',
     },
     avatarContainer: {
         position: 'relative',
@@ -268,6 +291,7 @@ const styles = StyleSheet.create({
         width: 50,
         height: 50,
         borderRadius: 25,
+        backgroundColor: '#F3F4F6',
     },
     onlineIndicator: {
         position: 'absolute',
@@ -276,7 +300,7 @@ const styles = StyleSheet.create({
         width: 12,
         height: 12,
         borderRadius: 6,
-        backgroundColor: '#25D366',
+        backgroundColor: '#22C55E',
         borderWidth: 2,
         borderColor: '#FFFFFF',
     },
@@ -292,7 +316,7 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: '#6366F1',
+        backgroundColor: '#002f34',
         marginLeft: 8,
     },
     emptyContainer: {

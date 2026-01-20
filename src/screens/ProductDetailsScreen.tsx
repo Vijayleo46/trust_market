@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Image, TouchableOpacity, Dimensions, ScrollView, Alert, StatusBar, Platform } from 'react-native';
+import { View, Image, TouchableOpacity, Dimensions, ScrollView, Alert, StatusBar, Platform, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { Typography } from '../components/common/Typography';
@@ -10,9 +10,11 @@ import {
     MapPin,
     Clock,
     CheckCircle2,
-    MessageCircle
+    MessageCircle,
+    Phone
 } from 'lucide-react-native';
 import { listingService } from '../services/listingService';
+import { chatService } from '../services/chatService';
 import { auth } from '../core/config/firebase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -21,34 +23,36 @@ const { width, height } = Dimensions.get('window');
 const IMG_HEIGHT = height * 0.5;
 
 export const ProductDetailsScreen = ({ route, navigation }: any) => {
+    const { product } = route.params || {};
+    const [item, setItem] = useState<any>(product);
     const [isInWishlist, setIsInWishlist] = useState(false);
     const [wishlistLoading, setWishlistLoading] = useState(false);
+    const [loading, setLoading] = useState(!product);
+    const [isZoomed, setIsZoomed] = useState(false);
 
-    const { product } = route.params || {};
+    // Fetch fresh data from backend
+    useEffect(() => {
+        const fetchListing = async () => {
+            if (!item?.id) return;
+            try {
+                const freshData = await listingService.getListingById(item.id);
+                if (freshData) {
+                    setItem(freshData);
+                }
+            } catch (error) {
+                console.error('Error fetching fresh listing data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    // Use actual product data from backend
-    const item = {
-        id: product?.id,
-        title: product?.title || 'Modern Downtown Loft',
-        price: product?.price || '2800/mo',
-        description: product?.description || '1 Bed 1 Bath. High ceilings, exposed brick. In the heart of the arts district.',
-        images: product?.images?.length ? product.images : [
-            'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&q=80&w=1000'
-        ],
-        category: product?.category || 'REAL ESTATE',
-        location: product?.location || 'Chicago, IL',
-        sellerId: product?.sellerId,
-        sellerName: product?.sellerName || 'Urban Living',
-        type: product?.type || 'product',
-        createdAt: product?.createdAt,
-        condition: product?.condition,
-        rating: product?.rating || 0
-    };
+        fetchListing();
+    }, [item?.id]);
 
-    // Check wishlist status from backend
+    // Check wishlist status
     const checkWishlist = useCallback(async () => {
         const user = auth.currentUser;
-        if (user && item.id) {
+        if (user && item?.id) {
             try {
                 const inWishlist = await listingService.isInWishlist(user.uid, item.id);
                 setIsInWishlist(inWishlist);
@@ -56,13 +60,12 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                 console.error('Error checking wishlist:', error);
             }
         }
-    }, [item.id]);
+    }, [item?.id]);
 
     useEffect(() => {
         checkWishlist();
     }, [checkWishlist]);
 
-    // Toggle wishlist with backend sync
     const toggleWishlist = async () => {
         const user = auth.currentUser;
         if (!user) {
@@ -70,11 +73,7 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
             return;
         }
 
-        try {
-            if (Haptics?.impactAsync) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            }
-        } catch (e) { }
+        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch (e) { }
 
         setWishlistLoading(true);
         try {
@@ -86,32 +85,68 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                 setIsInWishlist(true);
             }
         } catch (error) {
-            console.error('Wishlist error:', error);
             Alert.alert('Error', 'Failed to update wishlist');
         } finally {
             setWishlistLoading(false);
         }
     };
 
-    // Handle chat with seller
-    const handleChatWithSeller = () => {
+    const handleChatWithSeller = async () => {
         const user = auth.currentUser;
         if (!user) {
             Alert.alert('Login Required', 'Please login to chat with seller.');
             return;
         }
 
-        // Navigate to chat screen (implement based on your chat setup)
-        Alert.alert('Chat', 'Opening chat with seller...');
+        if (user.uid === item.sellerId) {
+            Alert.alert('Info', 'You cannot chat with yourself.');
+            return;
+        }
+
+        try {
+            const chatId = await chatService.getOrCreateChat(
+                user.uid,
+                item.sellerId,
+                user.displayName || 'Buyer',
+                item.sellerName || 'Seller',
+                item.type || 'product',
+                item.id,
+                item.title
+            );
+
+            navigation.navigate('ChatRoom', {
+                chatId,
+                otherName: item.sellerName || 'Seller',
+                otherAvatar: `https://i.pravatar.cc/150?u=${item.sellerId}`,
+                productImage: item.images?.[0],
+                productPrice: item.price,
+                productTitle: item.title
+            });
+        } catch (error) {
+            Alert.alert('Error', 'Failed to initiate chat.');
+        }
     };
 
-    // Format time ago
+    const handleCallSeller = () => {
+        if (item.contactPhone || item.showPhone) {
+            Alert.alert('Call Seller', `Connecting to ${item.contactPhone || 'seller'}...`);
+        } else {
+            Alert.alert('Info', 'Seller has not provided a phone number.');
+        }
+    };
+
     const getTimeAgo = () => {
-        if (!item.createdAt) return 'Just now';
-        // Simple time ago logic
-        return 'Just now';
+        if (!item?.createdAt) return 'Just now';
+        return 'Recently added';
     };
 
+    if (loading || !item) {
+        return (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' }}>
+                <ActivityIndicator size="large" color="#002f34" />
+            </View>
+        );
+    }
     return (
         <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
             <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -122,54 +157,67 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                 bounces={false}
             >
                 {/* Main Product Image */}
-                <MotiView
-                    from={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ type: 'timing', duration: 300 }}
-                    style={{ height: IMG_HEIGHT, width: '100%' }}
+                <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => {
+                        setIsZoomed(!isZoomed);
+                        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (e) { }
+                    }}
+                    style={{ height: IMG_HEIGHT, width: '100%', overflow: 'hidden' }}
                 >
-                    <Image
-                        source={{ uri: item.images[0] }}
-                        style={{ width, height: IMG_HEIGHT }}
-                        resizeMode="cover"
-                    />
+                    <MotiView
+                        animate={{
+                            scale: isZoomed ? 1.3 : 1,
+                        }}
+                        transition={{
+                            type: 'timing',
+                            duration: 400,
+                        }}
+                        style={{ width: '100%', height: '100%' }}
+                    >
+                        <Image
+                            source={{ uri: item.images[0] }}
+                            style={{ width, height: IMG_HEIGHT }}
+                            resizeMode="cover"
+                        />
+                    </MotiView>
+                </TouchableOpacity>
 
-                    {/* Dark Overlay for better button visibility */}
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.4)', 'transparent', 'transparent']}
-                        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 120 }}
-                    />
+                {/* Dark Overlay for better button visibility */}
+                <LinearGradient
+                    colors={['rgba(0,0,0,0.4)', 'transparent', 'transparent']}
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 120 }}
+                />
 
-                    {/* Header Buttons Overlay */}
-                    <View style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
-                        <SafeAreaView edges={['top']} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10 }}>
+                {/* Header Buttons Overlay */}
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
+                    <SafeAreaView edges={['top']} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10 }}>
+                        <TouchableOpacity
+                            onPress={() => navigation.goBack()}
+                            style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}
+                        >
+                            <ChevronLeft size={24} color="#0F172A" strokeWidth={2.5} />
+                        </TouchableOpacity>
+
+                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <TouchableOpacity style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
+                                <Share2 size={20} color="#0F172A" strokeWidth={2.5} />
+                            </TouchableOpacity>
                             <TouchableOpacity
-                                onPress={() => navigation.goBack()}
+                                onPress={toggleWishlist}
+                                disabled={wishlistLoading}
                                 style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}
                             >
-                                <ChevronLeft size={24} color="#0F172A" strokeWidth={2.5} />
+                                <Heart
+                                    size={20}
+                                    color={isInWishlist ? "#EF4444" : "#0F172A"}
+                                    fill={isInWishlist ? "#EF4444" : "transparent"}
+                                    strokeWidth={2.5}
+                                />
                             </TouchableOpacity>
-
-                            <View style={{ flexDirection: 'row', gap: 12 }}>
-                                <TouchableOpacity style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
-                                    <Share2 size={20} color="#0F172A" strokeWidth={2.5} />
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={toggleWishlist}
-                                    disabled={wishlistLoading}
-                                    style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}
-                                >
-                                    <Heart
-                                        size={20}
-                                        color={isInWishlist ? "#EF4444" : "#0F172A"}
-                                        fill={isInWishlist ? "#EF4444" : "transparent"}
-                                        strokeWidth={2.5}
-                                    />
-                                </TouchableOpacity>
-                            </View>
-                        </SafeAreaView>
-                    </View>
-                </MotiView>
+                        </View>
+                    </SafeAreaView>
+                </View>
 
                 {/* Product Details Sheet */}
                 <MotiView
@@ -291,13 +339,13 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                         onPress={handleChatWithSeller}
                         activeOpacity={0.8}
                         style={{
-                            backgroundColor: '#6366F1',
+                            backgroundColor: '#002f34',
                             height: 64,
                             borderRadius: 32,
                             flexDirection: 'row',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            shadowColor: '#6366F1',
+                            shadowColor: '#002f34',
                             shadowOffset: { width: 0, height: 8 },
                             shadowOpacity: 0.3,
                             shadowRadius: 16,
@@ -311,6 +359,6 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                     </TouchableOpacity>
                 </MotiView>
             </View>
-        </View>
+        </View >
     );
 };

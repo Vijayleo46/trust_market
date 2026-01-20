@@ -100,6 +100,21 @@ export const listingService = {
         }
     },
 
+    // Get listing by ID
+    getListingById: async (id: string) => {
+        try {
+            const docRef = doc(db, 'listings', id);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                return { id: docSnap.id, ...docSnap.data() } as Listing;
+            }
+            return null;
+        } catch (error) {
+            console.error("Error fetching listing by ID: ", error);
+            throw error;
+        }
+    },
+
     // Search listings
     searchListings: async (searchQuery: string) => {
         try {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Dimensions } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { useTheme } from '../theme/ThemeContext';
 import { Typography } from '../components/common/Typography';
@@ -26,6 +27,7 @@ const { width } = Dimensions.get('window');
 
 export const ProfileScreen = ({ navigation }: any) => {
     const { theme, spacing, isDark, toggleTheme } = useTheme();
+    const isFocused = useIsFocused();
     const user = auth.currentUser;
     const [userListingCount, setUserListingCount] = useState(0);
     const [userProfile, setUserProfile] = useState<any>(null);
@@ -35,12 +37,12 @@ export const ProfileScreen = ({ navigation }: any) => {
             if (user) {
                 console.log('=== FETCHING USER DATA FROM DATABASE ===');
                 console.log('User ID:', user.uid);
-                
+
                 // Fetch listings count
                 const listings = await listingService.getListingsByUser(user.uid);
                 setUserListingCount(listings.length);
                 console.log('✅ Listings count:', listings.length);
-                
+
                 // Fetch user profile from Firestore
                 try {
                     const profile = await userService.getProfile(user.uid);
@@ -56,7 +58,7 @@ export const ProfileScreen = ({ navigation }: any) => {
             }
         };
         fetchUserData();
-    }, [user]);
+    }, [user, isFocused]);
 
     // Use profile data from database if available, otherwise use Auth data
     const displayName = userProfile?.displayName || user?.displayName || 'User';

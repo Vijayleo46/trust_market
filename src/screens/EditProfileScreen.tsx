@@ -16,6 +16,7 @@ import { ChevronLeft, Camera, Save } from 'lucide-react-native';
 import { auth } from '../core/config/firebase';
 import { updateProfile } from 'firebase/auth';
 import { userService } from '../services/userService';
+import { storageService } from '../services/storageService';
 import * as ImagePicker from 'expo-image-picker';
 
 export const EditProfileScreen = ({ navigation }: any) => {
@@ -85,14 +86,31 @@ export const EditProfileScreen = ({ navigation }: any) => {
         setLoading(true);
 
         try {
-            console.log('📤 Step 1: Updating Firebase Auth profile...');
-            // Update Firebase Auth display name
-            await updateProfile(user, {
+            console.log('📤 Step 1: Checking for image upload...');
+            let finalPhotoURL = photoURL;
+
+            // Check if photoURL is a local URI that needs uploading (handles Mobile and Web)
+            if (photoURL && (photoURL.startsWith('file://') || photoURL.startsWith('content://') || photoURL.startsWith('blob:'))) {
+                console.log('📸 New image detected, uploading to storage...');
+                const storagePath = `profile_pictures/${user.uid}_${Date.now()}.jpg`;
+                finalPhotoURL = await storageService.uploadImage(photoURL, storagePath);
+                console.log('✅ Image uploaded successfully:', finalPhotoURL);
+                setPhotoURL(finalPhotoURL); // Update local state with remote URL
+            }
+
+            console.log('📤 Step 2: Updating Firebase Auth profile...');
+            // Update Firebase Auth profile
+            const authUpdateData: any = {
                 displayName: name.trim(),
-            });
+            };
+            if (finalPhotoURL) {
+                authUpdateData.photoURL = finalPhotoURL;
+            }
+
+            await updateProfile(user, authUpdateData);
             console.log('✅ Firebase Auth updated successfully');
 
-            console.log('📤 Step 2: Saving to Firestore database...');
+            console.log('📤 Step 3: Saving to Firestore database...');
             // Update Firestore user document in 'users' collection
             await userService.updateProfile(user.uid, {
                 uid: user.uid,
@@ -101,7 +119,7 @@ export const EditProfileScreen = ({ navigation }: any) => {
                 phone: phone.trim(),
                 bio: bio.trim(),
                 location: location.trim(),
-                photoURL: photoURL || user.photoURL || '',
+                photoURL: finalPhotoURL || user.photoURL || '',
                 updatedAt: new Date(),
                 kycStatus: 'unverified',
             } as any);
@@ -113,8 +131,8 @@ export const EditProfileScreen = ({ navigation }: any) => {
             console.log('✅ Auth state reloaded');
 
             Alert.alert(
-                'Success! ✅', 
-                'Profile updated and saved to database successfully!', 
+                'Success! ✅',
+                'Profile updated and saved to database successfully!',
                 [
                     {
                         text: 'OK',
@@ -231,11 +249,9 @@ export const EditProfileScreen = ({ navigation }: any) => {
                     style={styles.saveButton}
                     onPress={handleSave}
                     disabled={loading}
+                    activeOpacity={0.8}
                 >
-                    <LinearGradient
-                        colors={['#6366F1', '#8B5CF6']}
-                        style={styles.saveGradient}
-                    >
+                    <View style={styles.saveBtnInternal}>
                         {loading ? (
                             <ActivityIndicator color="#FFF" />
                         ) : (
@@ -244,7 +260,7 @@ export const EditProfileScreen = ({ navigation }: any) => {
                                 <Typography style={styles.saveText}>Save Changes</Typography>
                             </>
                         )}
-                    </LinearGradient>
+                    </View>
                 </TouchableOpacity>
             </ScrollView>
         </View>
@@ -254,7 +270,7 @@ export const EditProfileScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F9FAFB',
+        backgroundColor: '#FAFAFA',
     },
     header: {
         flexDirection: 'row',
@@ -265,13 +281,13 @@ const styles = StyleSheet.create({
         paddingBottom: 16,
         backgroundColor: '#FFF',
         borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
+        borderBottomColor: '#F1F5F9',
     },
     backButton: {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#F9FAFB',
+        backgroundColor: '#F8FAFC',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -290,7 +306,7 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: '#E5E7EB',
+        backgroundColor: '#E2E8F0',
     },
     cameraButton: {
         position: 'absolute',
@@ -299,7 +315,7 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: '#6366F1',
+        backgroundColor: '#002f34',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 3,
@@ -313,8 +329,8 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 12,
-        fontWeight: '600',
-        color: '#6B7280',
+        fontWeight: '700',
+        color: '#64748B',
         marginBottom: 8,
         letterSpacing: 0.5,
     },
@@ -324,13 +340,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 14,
         fontSize: 15,
-        color: '#1F2937',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
+        color: '#002f34',
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
     },
     inputDisabled: {
-        backgroundColor: '#F3F4F6',
-        color: '#9CA3AF',
+        backgroundColor: '#F8FAFC',
+        color: '#94A3B8',
+        borderColor: '#F1F5F9',
     },
     textArea: {
         height: 100,
@@ -341,8 +358,14 @@ const styles = StyleSheet.create({
         marginTop: 32,
         borderRadius: 16,
         overflow: 'hidden',
+        backgroundColor: '#002f34',
+        shadowColor: '#002f34',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
     },
-    saveGradient: {
+    saveBtnInternal: {
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',

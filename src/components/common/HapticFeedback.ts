@@ -1,30 +1,45 @@
+import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
 
-// Simple haptic feedback utility
+// Simple haptic feedback utility using expo-haptics
 export const hapticFeedback = {
   light: () => {
-    if (Platform.OS === 'ios') {
-      // On iOS, you can use Haptics API if available
-      // For now, we'll use a simple implementation
-      console.log('Light haptic feedback');
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (e) {
+      console.log('Light haptic feedback error');
     }
   },
-  
+
   medium: () => {
-    if (Platform.OS === 'ios') {
-      console.log('Medium haptic feedback');
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (e) {
+      console.log('Medium haptic feedback error');
     }
   },
-  
+
   heavy: () => {
-    if (Platform.OS === 'ios') {
-      console.log('Heavy haptic feedback');
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    } catch (e) {
+      console.log('Heavy haptic feedback error');
     }
   },
-  
+
   selection: () => {
-    if (Platform.OS === 'ios') {
-      console.log('Selection haptic feedback');
+    try {
+      Haptics.selectionAsync();
+    } catch (e) {
+      console.log('Selection haptic feedback error');
+    }
+  },
+
+  impact: () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (e) {
+      console.log('Impact haptic feedback error');
     }
   }
 };

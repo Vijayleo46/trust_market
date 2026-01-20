@@ -25,9 +25,9 @@ const { width } = Dimensions.get('window');
 
 export const ChatRoomScreen = ({ route, navigation }: any) => {
     const { theme, spacing, isDark } = useTheme();
-    const { 
-        chatId = 'demo_chat', 
-        otherName = 'Seller', 
+    const {
+        chatId = 'demo_chat',
+        otherName = 'Seller',
         otherAvatar = 'https://i.pravatar.cc/150?u=seller',
         productImage = '',
         productPrice = '',
@@ -59,7 +59,7 @@ export const ChatRoomScreen = ({ route, navigation }: any) => {
             });
             setMessages(data);
             setLoading(false);
-            
+
             // Scroll to bottom when new messages arrive
             setTimeout(() => {
                 flatListRef.current?.scrollToEnd({ animated: true });
@@ -74,22 +74,22 @@ export const ChatRoomScreen = ({ route, navigation }: any) => {
 
     const handleSend = async () => {
         if (!inputText.trim()) return;
-        
+
         const text = inputText.trim();
         const userId = auth.currentUser?.uid;
-        
+
         console.log('=== SENDING MESSAGE ===');
         console.log('Chat ID:', chatId);
         console.log('User ID:', userId);
         console.log('Message:', text);
-        
+
         if (!userId) {
             console.error('❌ No user logged in');
             return;
         }
-        
+
         setInputText('');
-        
+
         try {
             const messageId = await chatService.sendMessage(chatId, userId, text);
             console.log('✅ Message sent successfully:', messageId);
@@ -125,7 +125,7 @@ export const ChatRoomScreen = ({ route, navigation }: any) => {
                     isMe ? styles.myRow : styles.theirRow
                 ]}
             >
-                <View 
+                <View
                     style={[
                         styles.bubble,
                         isMe ? styles.myBubble : styles.theirBubble
@@ -244,9 +244,9 @@ export const ChatRoomScreen = ({ route, navigation }: any) => {
                     >
                         <View style={[
                             styles.sendCircle,
-                            { backgroundColor: inputText.trim() ? '#25D366' : '#B0B0B0' }
+                            { backgroundColor: inputText.trim() ? '#002f34' : '#E2E8F0' }
                         ]}>
-                            <Send size={18} color="#FFF" />
+                            <Send size={20} color={inputText.trim() ? '#FFF' : '#94A3B8'} />
                         </View>
                     </TouchableOpacity>
                 </View>
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     messageRow: {
         flexDirection: 'row',
         marginBottom: 4,
-        maxWidth: '75%',
+        maxWidth: '78%',
     },
     myRow: {
         alignSelf: 'flex-end',
@@ -373,73 +373,66 @@ const styles = StyleSheet.create({
     bubble: {
         paddingVertical: 8,
         paddingHorizontal: 12,
-        borderRadius: 8,
+        borderRadius: 12,
         maxWidth: '100%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 1,
-        elevation: 1,
     },
     myBubble: {
-        backgroundColor: '#DCF8C6',
-        borderTopRightRadius: 8,
-        borderTopLeftRadius: 8,
-        borderBottomLeftRadius: 8,
-        borderBottomRightRadius: 0,
+        backgroundColor: '#002f34',
+        borderBottomRightRadius: 2,
     },
     theirBubble: {
         backgroundColor: '#FFFFFF',
-        borderTopRightRadius: 8,
-        borderTopLeftRadius: 8,
-        borderBottomLeftRadius: 0,
-        borderBottomRightRadius: 8,
+        borderBottomLeftRadius: 2,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
     },
     messageText: {
         fontSize: 15,
         lineHeight: 20,
     },
     messageTextMe: {
-        color: '#000',
+        color: '#FFFFFF',
     },
     messageTextTheir: {
-        color: '#000',
+        color: '#002f34',
     },
     timestamp: {
-        fontSize: 11,
+        fontSize: 10,
         marginTop: 2,
         alignSelf: 'flex-end',
     },
     timestampMe: {
-        color: '#667781',
+        color: 'rgba(255,255,255,0.7)',
     },
     timestampTheir: {
-        color: '#667781',
+        color: '#94A3B8',
     },
     footer: {
-        backgroundColor: '#F0F0F0',
-        paddingHorizontal: 8,
-        paddingVertical: 6,
-        paddingBottom: Platform.OS === 'ios' ? 28 : 6,
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        paddingBottom: Platform.OS === 'ios' ? 34 : 12,
         borderTopWidth: 1,
-        borderTopColor: '#E5E5E5',
+        borderTopColor: '#F1F5F9',
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        borderRadius: 24,
+        backgroundColor: '#F8FAFC',
+        borderRadius: 28,
         paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
     },
     attachButton: {
-        padding: 4,
+        padding: 8,
     },
     input: {
         flex: 1,
         fontSize: 16,
-        color: '#000',
-        maxHeight: 100,
+        color: '#002f34',
+        maxHeight: 120,
         paddingVertical: 8,
         paddingHorizontal: 8,
     },
@@ -447,11 +440,15 @@ const styles = StyleSheet.create({
         marginLeft: 4,
     },
     sendCircle: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
+        shadowColor: '#002f34',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
 });
 

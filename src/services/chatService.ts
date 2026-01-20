@@ -41,9 +41,9 @@ export interface ChatThread {
 export const chatService = {
     // Create or get a chat thread between two users
     getOrCreateChat: async (
-        user1Id: string, 
-        user2Id: string, 
-        user1Name: string, 
+        user1Id: string,
+        user2Id: string,
+        user1Name: string,
         user2Name: string,
         listingType?: 'product' | 'job',
         listingId?: string,
@@ -57,7 +57,7 @@ export const chatService = {
         try {
             const threadId = [user1Id, user2Id].sort().join('_');
             console.log('Thread ID:', threadId);
-            
+
             const threadRef = doc(db, 'chats', threadId);
 
             // We'll use setDoc with merge to ensure it exists
@@ -99,7 +99,7 @@ export const chatService = {
                 text,
                 createdAt: serverTimestamp(),
             });
-            
+
             console.log('✅ Message sent with ID:', messageRef.id);
 
             // Update last message in main thread doc
@@ -107,7 +107,7 @@ export const chatService = {
                 lastMessage: text,
                 lastMessageAt: serverTimestamp(),
             });
-            
+
             console.log('✅ Chat thread updated');
             return messageRef.id;
         } catch (error: any) {
@@ -121,15 +121,28 @@ export const chatService = {
 
     // Subscribe to chat threads for a user
     subscribeToUserChats: (userId: string, callback: (chats: ChatThread[]) => void) => {
+        console.log('Subscribing to chats for user:', userId);
         const q = query(
             collection(db, 'chats'),
-            where('participants', 'array-contains', userId),
-            orderBy('lastMessageAt', 'desc')
+            where('participants', 'array-contains', userId)
+            // Removed orderBy to avoid missing index errors on new projects
         );
 
         return onSnapshot(q, (snapshot) => {
+            console.log('Firestore Snapshot received. Docs:', snapshot.docs.length);
             const chats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatThread));
-            callback(chats);
+
+            // Sort in-memory instead
+            const sortedChats = chats.sort((a, b) => {
+                const timeA = a.lastMessageAt?.seconds || 0;
+                const timeB = b.lastMessageAt?.seconds || 0;
+                return timeB - timeA;
+            });
+
+            callback(sortedChats);
+        }, (error) => {
+            console.error('=== CHAT SUBSCRIPTION ERROR ===');
+            console.error(error);
         });
     },
 

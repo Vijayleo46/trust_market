@@ -5,11 +5,11 @@ import { Package, Briefcase } from 'lucide-react-native';
 
 interface PostTypeSelectorProps {
   visible: boolean;
-  onSelectType: (type: 'product' | 'job') => void;
+  onSelect: (type: 'product' | 'job' | 'service') => void;
   onClose: () => void;
 }
 
-export const PostTypeSelector: React.FC<PostTypeSelectorProps> = ({ visible, onSelectType, onClose }) => {
+export const PostTypeSelector: React.FC<PostTypeSelectorProps> = ({ visible, onSelect, onClose }) => {
   return (
     <Modal
       visible={visible}
@@ -17,20 +17,20 @@ export const PostTypeSelector: React.FC<PostTypeSelectorProps> = ({ visible, onS
       animationType="slide"
       onRequestClose={onClose}
     >
-      <TouchableOpacity 
-        style={styles.overlay} 
-        activeOpacity={1} 
+      <TouchableOpacity
+        style={styles.overlay}
+        activeOpacity={1}
         onPress={onClose}
       >
         <View style={styles.container}>
           <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
             <View style={styles.content}>
               <Typography style={styles.title}>What do you want to post?</Typography>
-              
+
               <TouchableOpacity
                 style={styles.option}
                 onPress={() => {
-                  onSelectType('product');
+                  onSelect('product');
                   onClose();
                 }}
               >
@@ -46,7 +46,7 @@ export const PostTypeSelector: React.FC<PostTypeSelectorProps> = ({ visible, onS
               <TouchableOpacity
                 style={styles.option}
                 onPress={() => {
-                  onSelectType('job');
+                  onSelect('job');
                   onClose();
                 }}
               >

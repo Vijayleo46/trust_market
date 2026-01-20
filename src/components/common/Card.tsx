@@ -49,7 +49,7 @@ export const Card: React.FC<CardProps> = ({
                 },
                 getVariantStyles(),
                 style,
-            ]}
+            ] as any}
             {...props}
         >
             {children}
