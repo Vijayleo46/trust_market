@@ -1,0 +1,5 @@
+src/components/common/BackendStatus.tsx(32,27): error TS18046: 'error' is of type 'unknown'.
+src/navigation/MainNavigator.tsx(191,42): error TS2538: Type 'undefined' cannot be used as an index type.
+src/navigation/MainNavigator.tsx(192,60): error TS2538: Type 'undefined' cannot be used as an index type.
+src/screens/WishlistScreen.tsx(171,49): error TS2551: Property 'checkbox' does not exist on type '{ container: { flex: number; }; header: { paddingTop: number; paddingHorizontal: number; }; iconBtn: { width: number; height: number; borderRadius: number; backgroundColor: string; justifyContent: "center"; ... 5 more ...; elevation: number; }; ... 36 more ...; suggestionHeader: { ...; }; }'. Did you mean 'checkboxUI'?
+src/utils/testBackendConnection.ts(62,20): error TS18046: 'error' is of type 'unknown'.
