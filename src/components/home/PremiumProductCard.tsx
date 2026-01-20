@@ -1,69 +1,59 @@
 import React from 'react';
-import { View, Image, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { View, Image, Dimensions, Pressable } from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
     withSpring,
-    withTiming,
     interpolate,
     Extrapolate
 } from 'react-native-reanimated';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import { BlurView } from 'expo-blur';
-import { Heart, MapPin } from 'lucide-react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Typography } from '../common/Typography';
-import { useTheme } from '../../theme/ThemeContext';
-import { hapticFeedback } from '../common/HapticFeedback';
+import { MapPin, Heart } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 48) / 2;
+const CARD_WIDTH = width * 0.44;
 
 interface PremiumProductCardProps {
-    id: string;
     title: string;
-    price: string;
+    price: string | number;
     image: string;
     location: string;
     onPress?: () => void;
 }
 
-export const PremiumProductCard: React.FC<PremiumProductCardProps> = ({
-    title,
-    price,
-    image,
-    location,
-    onPress
-}) => {
-    const { theme } = useTheme();
-
-    // Animation Values for 3D Tilt
+export const PremiumProductCard = ({ title, price, image, location, onPress }: PremiumProductCardProps) => {
     const rotateX = useSharedValue(0);
     const rotateY = useSharedValue(0);
     const scale = useSharedValue(1);
 
     const gesture = Gesture.Pan()
+        .onBegin(() => {
+            scale.value = withSpring(0.95);
+        })
         .onUpdate((event) => {
             // Calculate rotation based on touch position relative to center
             const centerX = CARD_WIDTH / 2;
-            const centerY = (CARD_WIDTH * 1.5) / 2;
+            const centerY = 200 / 2; // Assuming height is around 200
 
-            // Limit rotation range
             rotateY.value = interpolate(
                 event.x,
                 [0, CARD_WIDTH],
-                [-15, 15],
+                [10, -10],
                 Extrapolate.CLAMP
             );
             rotateX.value = interpolate(
                 event.y,
-                [0, CARD_WIDTH * 1.5],
-                [15, -15],
+                [0, 200],
+                [-10, 10],
                 Extrapolate.CLAMP
             );
         })
-        .onEnd(() => {
+        .onFinalize(() => {
             rotateX.value = withSpring(0);
             rotateY.value = withSpring(0);
+            scale.value = withSpring(1);
         });
 
     const animatedStyle = useAnimatedStyle(() => {
@@ -77,75 +67,52 @@ export const PremiumProductCard: React.FC<PremiumProductCardProps> = ({
         };
     });
 
-    const handlePressIn = () => {
-        scale.value = withTiming(0.95, { duration: 100 });
-        hapticFeedback.selection();
-    };
-
-    const handlePressOut = () => {
-        scale.value = withSpring(1);
-    };
-
     return (
         <GestureDetector gesture={gesture}>
-            <Animated.View style={[animatedStyle]}>
-                <TouchableOpacity
-                    activeOpacity={1}
-                    onPressIn={handlePressIn}
-                    onPressOut={handlePressOut}
+            <Animated.View
+                style={[animatedStyle]}
+                className="mb-4"
+            >
+                <Pressable
                     onPress={onPress}
-                    className="bg-white rounded-[32px] overflow-hidden"
-                    style={{
-                        width: CARD_WIDTH,
-                        height: CARD_WIDTH * 1.5,
-                        // Custom Outer Glow instead of heavy shadow
-                        shadowColor: theme.primary,
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 12,
-                        elevation: 5,
-                    }}
+                    className="bg-white rounded-[32px] overflow-hidden shadow-xl shadow-black/5 border border-white"
                 >
-                    <Image
-                        source={{ uri: image }}
-                        className="w-full h-full absolute"
-                        resizeMode="cover"
-                    />
-
-                    {/* Top Icons */}
-                    <View className="flex-row justify-end p-4 z-10">
-                        <TouchableOpacity className="bg-white/20 p-2 rounded-full backdrop-blur-md">
-                            <Heart size={18} color="#FFF" strokeWidth={1} />
-                        </TouchableOpacity>
+                    <View className="relative h-48 w-full">
+                        <Image
+                            source={{ uri: image }}
+                            className="h-full w-full object-cover"
+                        />
+                        <LinearGradient
+                            colors={['transparent', 'rgba(0,0,0,0.1)']}
+                            className="absolute inset-0"
+                        />
+                        <View className="absolute top-4 right-4 bg-white/80 rounded-full p-2 backdrop-blur-md">
+                            <Heart size={16} color="#002f34" fill="white" />
+                        </View>
                     </View>
 
-                    {/* Glassmorphism Bottom Section */}
-                    <View className="absolute bottom-0 left-0 right-0 overflow-hidden rounded-b-[32px]">
-                        <BlurView intensity={30} tint="light" className="p-4 bg-white/40">
-                            <Typography
-                                className="text-white font-serif font-black text-lg"
-                                numberOfLines={1}
-                                style={{ letterSpacing: -0.5 }}
-                            >
-                                {price}
-                            </Typography>
-                            <Typography
-                                variant="bodySmall"
-                                className="text-white/90 font-medium"
-                                numberOfLines={1}
-                            >
-                                {title}
-                            </Typography>
+                    <View className="p-4 bg-white">
+                        <Typography className="text-[10px] uppercase tracking-[2px] text-[#002f34] font-bold mb-1">
+                            Fresh Arrival
+                        </Typography>
+                        <Typography className="text-sm font-semibold text-gray-900 mb-1" numberOfLines={1}>
+                            {title}
+                        </Typography>
 
-                            <View className="flex-row items-center mt-2 opacity-80">
-                                <MapPin size={12} color="#FFF" strokeWidth={1} />
-                                <Typography className="text-white text-[10px] ml-1">
-                                    {location}
-                                </Typography>
-                            </View>
-                        </BlurView>
+                        <View className="flex-row items-center justify-between mt-2">
+                            <Typography className="text-lg font-black text-[#002f34]">
+                                {typeof price === 'number' ? `₹${price.toLocaleString()}` : price}
+                            </Typography>
+                        </View>
+
+                        <View className="flex-row items-center mt-2 opacity-50">
+                            <MapPin size={10} color="#666" />
+                            <Typography className="text-[10px] ml-1 text-gray-600">
+                                {location}
+                            </Typography>
+                        </View>
                     </View>
-                </TouchableOpacity>
+                </Pressable>
             </Animated.View>
         </GestureDetector>
     );
