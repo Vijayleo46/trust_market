@@ -250,9 +250,32 @@ export const EditProfileScreen = ({ navigation }: any) => {
                             <Camera size={18} color="#FFF" />
                         </TouchableOpacity>
                     </View>
-                    <Typography variant="bodySmall" color="#6B7280" style={{ marginTop: 12, textAlign: 'center' }}>
-                        Tap to change profile photo
-                    </Typography>
+                    <TouchableOpacity
+                        style={{ marginTop: 12 }}
+                        onPress={async () => {
+                            const sampleUrl = 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200&auto=format&fit=crop';
+                            setPhotoURL(sampleUrl);
+                            setLoading(true);
+                            try {
+                                if (user) {
+                                    await Promise.all([
+                                        updateProfile(user, { photoURL: sampleUrl }),
+                                        userService.updateProfile(user.uid, { photoURL: sampleUrl, updatedAt: new Date() })
+                                    ]);
+                                    await user.reload();
+                                    Alert.alert('Success ✅', 'Sample photo applied and synced!');
+                                }
+                            } catch (e: any) {
+                                Alert.alert('Error', e.message);
+                            } finally {
+                                setLoading(false);
+                            }
+                        }}
+                    >
+                        <Typography variant="bodySmall" color="#002f34" style={{ fontWeight: '700', textDecorationLine: 'underline' }}>
+                            Set Sample Photo
+                        </Typography>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Form Fields */}

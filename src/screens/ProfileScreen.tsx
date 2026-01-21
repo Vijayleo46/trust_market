@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Dimensions, Alert } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { useTheme } from '../theme/ThemeContext';
@@ -59,7 +59,7 @@ export const ProfileScreen = ({ navigation }: any) => {
     // Use profile data from database if available, otherwise use Auth data
     const displayName = userProfile?.displayName || user?.displayName || 'User';
     const email = userProfile?.email || user?.email || '';
-    const photoURL = userProfile?.photoURL || user?.photoURL || 'https://i.pravatar.cc/150?u=premium';
+    const photoURL = userProfile?.photoURL || user?.photoURL || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200&auto=format&fit=crop';
     const phone = userProfile?.phone || '';
     const location = userProfile?.location || '';
     const bio = userProfile?.bio || '';
@@ -194,14 +194,30 @@ export const ProfileScreen = ({ navigation }: any) => {
                     />
                     <MenuItem
                         index={6}
-                        icon={<Settings size={20} {...{ color: "#1F2937" } as any} />}
+                        icon={<Star size={20} {...{ color: "#F59E0B" } as any} />}
+                        label="Set Premium Portrait"
+                        onPress={async () => {
+                            const premiumUrl = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop';
+                            try {
+                                if (user) {
+                                    await userService.updateProfile(user.uid, { photoURL: premiumUrl, updatedAt: new Date() });
+                                    Alert.alert('Success ✅', 'Premium portrait applied! Pull down to refresh or re-open the screen.');
+                                }
+                            } catch (e: any) {
+                                Alert.alert('Error', e.message);
+                            }
+                        }}
+                    />
+                    <MenuItem
+                        index={7}
+                        icon={<Grid size={20} {...{ color: "#10B981" } as any} />}
                         label="Populate Demo Data"
                         onPress={async () => {
                             try {
                                 await listingService.seedDemoData();
-                                alert('Demo data added! Check Home & My Listings.');
-                            } catch (e) {
-                                alert('Failed to seed data');
+                                Alert.alert('Success ✅', 'Sample items added to database!');
+                            } catch (e: any) {
+                                Alert.alert('Error', e.message);
                             }
                         }}
                     />

@@ -103,7 +103,12 @@ export const ChatRoomScreen = ({ route, navigation }: any) => {
 
     const renderMessage = ({ item, index }: { item: Message, index: number }) => {
         const isMe = item.senderId === auth.currentUser?.uid || item.senderId === 'anonymous';
-        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const formatTime = (ts: any) => {
+            if (!ts) return '';
+            const date = ts.toDate ? ts.toDate() : new Date(ts);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+        };
+        const time = formatTime(item.createdAt);
 
         return (
             <MotiView
@@ -131,18 +136,22 @@ export const ChatRoomScreen = ({ route, navigation }: any) => {
                         isMe ? styles.myBubble : styles.theirBubble
                     ]}
                 >
-                    <Typography variant="bodyMedium" style={[
-                        styles.messageText,
-                        isMe ? styles.messageTextMe : styles.messageTextTheir
-                    ]}>
-                        {item.text}
-                    </Typography>
-                    <Typography variant="bodySmall" style={[
-                        styles.timestamp,
-                        isMe ? styles.timestampMe : styles.timestampTheir
-                    ]}>
-                        {time}
-                    </Typography>
+                    <View style={styles.bubbleInner}>
+                        <Typography variant="bodyMedium" style={[
+                            styles.messageText,
+                            isMe ? styles.messageTextMe : styles.messageTextTheir
+                        ]}>
+                            {item.text}
+                        </Typography>
+                        <View style={styles.timeContainer}>
+                            <Typography variant="bodySmall" style={[
+                                styles.timestamp,
+                                isMe ? styles.timestampMe : styles.timestampTheir
+                            ]}>
+                                {time}
+                            </Typography>
+                        </View>
+                    </View>
                 </View>
             </MotiView>
         );
@@ -371,10 +380,12 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
     },
     bubble: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 12,
+        paddingTop: 6,
+        paddingBottom: 4,
+        paddingHorizontal: 10,
+        borderRadius: 16,
         maxWidth: '100%',
+        minWidth: 60,
     },
     myBubble: {
         backgroundColor: '#002f34',
@@ -386,9 +397,17 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#F1F5F9',
     },
+    bubbleInner: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        flexWrap: 'wrap',
+        justifyContent: 'flex-start',
+    },
     messageText: {
         fontSize: 15,
         lineHeight: 20,
+        paddingRight: 4,
+        marginBottom: 2,
     },
     messageTextMe: {
         color: '#FFFFFF',
@@ -396,16 +415,20 @@ const styles = StyleSheet.create({
     messageTextTheir: {
         color: '#002f34',
     },
+    timeContainer: {
+        alignSelf: 'flex-end',
+        marginLeft: 'auto',
+        paddingLeft: 8,
+    },
     timestamp: {
         fontSize: 10,
-        marginTop: 2,
-        alignSelf: 'flex-end',
+        marginBottom: 2,
     },
     timestampMe: {
-        color: 'rgba(255,255,255,0.7)',
+        color: 'rgba(255,255,255,0.6)',
     },
     timestampTheir: {
-        color: '#94A3B8',
+        color: '#8696a0',
     },
     footer: {
         backgroundColor: '#FFFFFF',

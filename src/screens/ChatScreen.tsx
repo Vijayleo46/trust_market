@@ -143,6 +143,20 @@ export const ChatScreen = ({ navigation }: any) => {
                 </Typography>
             </View>
 
+            {/* Premium Search Bar */}
+            <View style={styles.searchContainer}>
+                <View style={styles.searchInner}>
+                    <Search size={18} color="#94A3B8" strokeWidth={2.5} />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search chats"
+                        placeholderTextColor="#94A3B8"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                </View>
+            </View>
+
             {/* Tab Selector - Chats/Groups Style */}
             <View style={styles.tabContainer}>
                 <TouchableOpacity
@@ -257,21 +271,24 @@ const styles = StyleSheet.create({
     },
     searchContainer: {
         paddingHorizontal: 20,
-        marginBottom: 12,
+        marginBottom: 16,
     },
     searchInner: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#F3F4F6',
-        height: 44,
-        borderRadius: 12,
-        paddingHorizontal: 14,
+        height: 48,
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        borderWidth: 1.5,
+        borderColor: '#F3F4F6',
     },
     searchInput: {
         flex: 1,
-        marginLeft: 10,
-        fontSize: 14,
+        marginLeft: 12,
+        fontSize: 15,
         color: '#002f34',
+        fontWeight: '500',
     },
     chatCard: {
         flexDirection: 'row',

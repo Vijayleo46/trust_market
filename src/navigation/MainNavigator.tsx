@@ -21,6 +21,7 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { ProductDetailsScreen } from '../screens/ProductDetailsScreen';
 import { ChatRoomScreen } from '../screens/ChatRoomScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { ImageViewerScreen } from '../screens/ImageViewerScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { KycScreen } from '../screens/KycScreen';
 import { AdminDashboardScreen } from '../screens/AdminDashboardScreen';
@@ -265,6 +266,15 @@ export const MainNavigator = () => {
                     <>
                         <Stack.Screen name="Main" component={TabNavigator} />
                         <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} />
+                        <Stack.Screen
+                            name="ImageViewer"
+                            component={ImageViewerScreen}
+                            options={{
+                                presentation: 'fullScreenModal',
+                                animation: 'fade',
+                                headerShown: false
+                            }}
+                        />
                         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
                         <Stack.Screen name="PostItem" component={PostScreen} />
                         <Stack.Screen

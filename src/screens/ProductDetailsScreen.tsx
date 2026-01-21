@@ -28,6 +28,7 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
     const [isInWishlist, setIsInWishlist] = useState(false);
     const [wishlistLoading, setWishlistLoading] = useState(false);
     const [loading, setLoading] = useState(!product);
+    const [chatLoading, setChatLoading] = useState(false);
     const [isZoomed, setIsZoomed] = useState(false);
 
     // Fetch fresh data from backend
@@ -103,12 +104,18 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
             return;
         }
 
+        setChatLoading(true);
         try {
+            // First, try to get the real seller profile for name/avatar
+            const sellerProfile = await userService.getProfile(item.sellerId);
+            const sellerName = sellerProfile?.displayName || item.sellerName || 'Seller';
+            const sellerAvatar = sellerProfile?.photoURL || `https://i.pravatar.cc/150?u=${item.sellerId}`;
+
             const chatId = await chatService.getOrCreateChat(
                 user.uid,
                 item.sellerId,
                 user.displayName || 'Buyer',
-                item.sellerName || 'Seller',
+                sellerName,
                 item.type || 'product',
                 item.id,
                 item.title
@@ -116,14 +123,17 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
 
             navigation.navigate('ChatRoom', {
                 chatId,
-                otherName: item.sellerName || 'Seller',
-                otherAvatar: `https://i.pravatar.cc/150?u=${item.sellerId}`,
+                otherName: sellerName,
+                otherAvatar: sellerAvatar,
                 productImage: item.images?.[0],
                 productPrice: item.price,
                 productTitle: item.title
             });
         } catch (error) {
+            console.error('Chat initiation error:', error);
             Alert.alert('Error', 'Failed to initiate chat.');
+        } finally {
+            setChatLoading(false);
         }
     };
 
@@ -160,8 +170,8 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                 <TouchableOpacity
                     activeOpacity={0.9}
                     onPress={() => {
-                        setIsZoomed(!isZoomed);
                         try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (e) { }
+                        navigation.navigate('ImageViewer', { imageUrl: item.images[0] });
                     }}
                     style={{ height: IMG_HEIGHT, width: '100%', overflow: 'hidden' }}
                 >
@@ -337,6 +347,7 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                 >
                     <TouchableOpacity
                         onPress={handleChatWithSeller}
+                        disabled={chatLoading}
                         activeOpacity={0.8}
                         style={{
                             backgroundColor: '#002f34',
@@ -350,12 +361,19 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                             shadowOpacity: 0.3,
                             shadowRadius: 16,
                             elevation: 8,
+                            opacity: chatLoading ? 0.7 : 1
                         }}
                     >
-                        <MessageCircle size={24} color="#FFFFFF" strokeWidth={2.5} />
-                        <Typography style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginLeft: 12 }}>
-                            Chat with Seller
-                        </Typography>
+                        {chatLoading ? (
+                            <ActivityIndicator color="#FFFFFF" />
+                        ) : (
+                            <>
+                                <MessageCircle size={24} color="#FFFFFF" strokeWidth={2.5} />
+                                <Typography style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginLeft: 12 }}>
+                                    Chat with Seller
+                                </Typography>
+                            </>
+                        )}
                     </TouchableOpacity>
                 </MotiView>
             </View>
