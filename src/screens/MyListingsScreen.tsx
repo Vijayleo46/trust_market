@@ -4,7 +4,7 @@ import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { useTheme } from '../theme/ThemeContext';
 import { Typography } from '../components/common/Typography';
 import {
-    Search, Filter, Eye, MessageCircle, Edit, Trash2,
+    Search, Filter, Eye, MessageCircle, Edit, Trash2, ChevronLeft,
     CheckCircle, TrendingUp, Briefcase, Package, X, Users, Calendar
 } from 'lucide-react-native';
 import { listingService, Listing } from '../services/listingService';
@@ -25,45 +25,24 @@ export const MyListingsScreen = ({ navigation }: any) => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const fetchListings = async () => {
-        console.log('=== FETCHING MY LISTINGS ===');
+    const fetchListings = async (uid?: string) => {
+        const userId = uid || auth.currentUser?.uid;
         try {
-            const user = auth.currentUser;
-            
-            if (!user) {
-                console.log('❌ No user logged in');
-                setLoading(false);
-                setRefreshing(false);
-                return;
-            }
+            const data = await listingService.getListingsByUser(userId);
 
-            console.log('✅ User logged in:', user.uid, user.displayName);
-            console.log('Fetching listings from Firebase...');
-            
-            const data = await listingService.getListingsByUser(user.uid);
-            console.log('✅ Listings fetched:', data.length);
-            
-            const products = data.filter(item => item.type === 'product');
-            const jobs = data.filter(item => item.type === 'job');
-            
-            console.log('Products:', products.length);
-            console.log('Jobs:', jobs.length);
-            
-            data.forEach((item, index) => {
-                console.log(`Listing ${index + 1}:`, {
-                    id: item.id,
-                    title: item.title,
-                    type: item.type,
-                    price: item.price,
-                    status: item.status
-                });
+            // Sort client-side and handle potential null/undefined createdAt
+            const sortedData = [...data].sort((a, b) => {
+                const timeA = a.createdAt?.toMillis?.() || (a.createdAt as any)?.seconds * 1000 || Date.now();
+                const timeB = b.createdAt?.toMillis?.() || (b.createdAt as any)?.seconds * 1000 || Date.now();
+                return timeB - timeA;
             });
-            
-            setListings(data);
+
+            console.log('✅ Sorted results:', sortedData.length);
+            setListings(sortedData);
         } catch (error: any) {
             console.error('=== FETCH LISTINGS ERROR ===');
             console.error('Error:', error);
-            console.error('Error message:', error.message);
+            Alert.alert('Database Error ❌', error.message || 'Failed to fetch listings.');
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -71,9 +50,18 @@ export const MyListingsScreen = ({ navigation }: any) => {
     };
 
     useEffect(() => {
+        let unsubscribe: any;
         if (isFocused) {
-            fetchListings();
+            // Explicitly wait for Auth to initialize
+            unsubscribe = auth.onAuthStateChanged((user) => {
+                if (user) {
+                    fetchListings(user.uid);
+                } else {
+                    setLoading(false);
+                }
+            });
         }
+        return () => unsubscribe && unsubscribe();
     }, [isFocused]);
 
     const onRefresh = () => {
@@ -147,8 +135,8 @@ export const MyListingsScreen = ({ navigation }: any) => {
                     style={styles.productImage}
                 />
                 <View style={styles.cardInfo}>
-                    <Typography variant="h3" style={{ marginBottom: 4 }}>{item.title}</Typography>
-                    <Typography variant="h2" style={{ color: '#4F46E5', marginBottom: 8 }}>${item.price}</Typography>
+                    <Typography variant="h3" style={{ marginBottom: 4, color: '#002f34' }}>{item.title}</Typography>
+                    <Typography variant="h2" style={{ color: '#002f34', marginBottom: 8, fontWeight: '900' }}>₹{item.price}</Typography>
 
                     <View style={styles.stats}>
                         <View style={styles.statItem}>
@@ -172,7 +160,7 @@ export const MyListingsScreen = ({ navigation }: any) => {
 
             <View style={styles.actions}>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('PostItem', { listing: item })}>
-                    <Edit size={18} color="#4F46E5" />
+                    <Edit size={18} color="#002f34" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => handleMarkSold(item.id!)}>
                     <CheckCircle size={18} color="#10B981" />
@@ -191,10 +179,10 @@ export const MyListingsScreen = ({ navigation }: any) => {
         <Animated.View entering={FadeInUp} style={styles.card}>
             <View style={styles.cardContent}>
                 <View style={styles.jobIcon}>
-                    <Briefcase size={24} color="#4F46E5" />
+                    <Briefcase size={24} color="#002f34" />
                 </View>
                 <View style={styles.cardInfo}>
-                    <Typography variant="h3" style={{ marginBottom: 4 }}>{item.title}</Typography>
+                    <Typography variant="h3" style={{ marginBottom: 4, color: '#002f34' }}>{item.title}</Typography>
                     <Typography variant="bodySmall" color="#6B7280" style={{ marginBottom: 8 }}>
                         {item.companyName || 'Company'}
                     </Typography>
@@ -216,7 +204,7 @@ export const MyListingsScreen = ({ navigation }: any) => {
 
                     <View style={[
                         styles.statusBadge,
-                        { backgroundColor: item.status === 'closed' ? '#6B7280' : '#4F46E5' }
+                        { backgroundColor: item.status === 'closed' ? '#6B7280' : '#002f34' }
                     ]}>
                         <Typography style={styles.statusText}>{item.status?.toUpperCase() || 'ACTIVE'}</Typography>
                     </View>
@@ -225,7 +213,7 @@ export const MyListingsScreen = ({ navigation }: any) => {
 
             <View style={styles.actions}>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('PostJob', { listing: item })}>
-                    <Edit size={18} color="#4F46E5" />
+                    <Edit size={18} color="#002f34" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => handleMarkSold(item.id!)}>
                     <X size={18} color="#EF4444" />
@@ -247,28 +235,44 @@ export const MyListingsScreen = ({ navigation }: any) => {
             <Typography variant="bodyMedium" color="#6B7280" style={{ marginBottom: 24, textAlign: 'center' }}>
                 Start selling products or posting jobs to see them here
             </Typography>
+
             <TouchableOpacity
                 style={styles.createBtn}
                 onPress={() => navigation.navigate('Main')}
             >
                 <LinearGradient
-                    colors={['#4F46E5', '#7C3AED']}
+                    colors={['#002f34', '#004a52']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={StyleSheet.absoluteFill}
                 />
-                <Typography style={{ color: '#FFF', fontWeight: '700' }}>Create Now</Typography>
+                <Typography style={{ color: '#FFF', fontWeight: '800' }}>Post Something</Typography>
             </TouchableOpacity>
         </View>
     );
-
     return (
         <View style={styles.container}>
             {/* Header with Gradient Background */}
             <View style={styles.headerContainer}>
                 <View style={styles.headerContent}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Typography variant="h1" style={{ fontSize: 24, fontWeight: '700', color: '#002f34' }}>My Listings</Typography>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <TouchableOpacity
+                                onPress={() => navigation.goBack()}
+                                style={{
+                                    marginRight: 12,
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: 20,
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    backgroundColor: '#f1f4f5'
+                                }}
+                            >
+                                <ChevronLeft size={24} color="#002f34" strokeWidth={2.5} />
+                            </TouchableOpacity>
+                            <Typography variant="h1" style={{ fontSize: 24, fontWeight: '700', color: '#002f34' }}>My Listings</Typography>
+                        </View>
                         <TouchableOpacity style={styles.filterBtn}>
                             <Filter size={20} color="#002f34" strokeWidth={2} />
                         </TouchableOpacity>
@@ -320,7 +324,7 @@ export const MyListingsScreen = ({ navigation }: any) => {
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4F46E5" />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#002f34" />}
             >
                 {filteredListings.length === 0 ? (
                     <EmptyState />
@@ -351,14 +355,6 @@ const styles = StyleSheet.create({
         paddingTop: 60,
         paddingHorizontal: 16,
     },
-    filterBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'transparent',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -382,8 +378,8 @@ const styles = StyleSheet.create({
         marginHorizontal: 24,
         borderRadius: 16,
         padding: 4,
-        marginTop: -20, // Overlap with header
-        marginBottom: 20,
+        marginTop: 16,
+        marginBottom: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
@@ -397,7 +393,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     activeSegment: {
-        backgroundColor: '#4F46E5',
+        backgroundColor: '#002f34',
     },
     segmentText: {
         fontSize: 14,
@@ -406,6 +402,14 @@ const styles = StyleSheet.create({
     },
     activeSegmentText: {
         color: '#FFF',
+    },
+    filterBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F8FAFC',
     },
     scrollContent: {
         paddingHorizontal: 24,
@@ -439,7 +443,7 @@ const styles = StyleSheet.create({
         width: 90,
         height: 90,
         borderRadius: 12,
-        backgroundColor: '#EEF2FF',
+        backgroundColor: '#f1f4f5',
         justifyContent: 'center',
         alignItems: 'center',
     },

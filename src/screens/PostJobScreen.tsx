@@ -147,8 +147,14 @@ export const PostJobScreen = ({ navigation }: any) => {
                     <Typography variant="h2" style={{ color: '#002f34', fontWeight: '700', fontSize: 20 }}>Post a Job</Typography>
                     <Typography variant="bodySmall" style={{ color: '#7f9799' }}>Reach thousands of candidates</Typography>
                 </View>
-                <TouchableOpacity style={styles.textBtn}>
-                    <Typography style={{ color: '#002f34', fontWeight: '600' }}>Draft</Typography>
+                <TouchableOpacity
+                    style={[styles.textBtn, loading && { opacity: 0.5 }]}
+                    onPress={handlePostJob}
+                    disabled={loading}
+                >
+                    <Typography style={{ color: '#002f34', fontWeight: '700' }}>
+                        {loading ? '...' : 'Save'}
+                    </Typography>
                 </TouchableOpacity>
             </View>
 
@@ -158,7 +164,7 @@ export const PostJobScreen = ({ navigation }: any) => {
                 <Animated.View entering={FadeInUp.delay(200)}>
                     <BlurView intensity={80} tint="light" style={styles.card}>
                         <View style={styles.cardHeader}>
-                            <Briefcase size={20} color="#4F46E5" />
+                            <Briefcase size={20} color="#002f34" />
                             <Typography variant="h3" style={{ marginLeft: 10 }}>Company Info</Typography>
                         </View>
 
@@ -190,7 +196,7 @@ export const PostJobScreen = ({ navigation }: any) => {
                 <Animated.View entering={FadeInUp.delay(300)}>
                     <View style={styles.cardWhite}>
                         <View style={styles.cardHeader}>
-                            <Check size={20} color="#4F46E5" />
+                            <Check size={20} color="#002f34" />
                             <Typography variant="h3" style={{ marginLeft: 10 }}>Job Details</Typography>
                         </View>
 
@@ -264,7 +270,7 @@ export const PostJobScreen = ({ navigation }: any) => {
                                 {skills.map(skill => (
                                     <TouchableOpacity key={skill} onPress={() => removeSkill(skill)} style={styles.tag}>
                                         <Typography style={styles.tagText}>{skill}</Typography>
-                                        <X size={14} color="#4F46E5" style={{ marginLeft: 4 }} />
+                                        <X size={14} color="#002f34" style={{ marginLeft: 4 }} />
                                     </TouchableOpacity>
                                 ))}
                             </View>
@@ -276,7 +282,7 @@ export const PostJobScreen = ({ navigation }: any) => {
                 <Animated.View entering={FadeInUp.delay(400)}>
                     <View style={styles.cardWhite}>
                         <View style={styles.cardHeader}>
-                            <MapPin size={20} color="#4F46E5" />
+                            <MapPin size={20} color="#002f34" />
                             <Typography variant="h3" style={{ marginLeft: 10 }}>Logistics</Typography>
                         </View>
 
@@ -311,7 +317,7 @@ export const PostJobScreen = ({ navigation }: any) => {
                 <Animated.View entering={FadeInUp.delay(500)}>
                     <View style={styles.cardWhite}>
                         <View style={styles.cardHeader}>
-                            <Briefcase size={20} color="#4F46E5" />
+                            <Briefcase size={20} color="#002f34" />
                             <Typography variant="h3" style={{ marginLeft: 10 }}>Description</Typography>
                         </View>
                         <TextInput
@@ -328,7 +334,7 @@ export const PostJobScreen = ({ navigation }: any) => {
                 <Animated.View entering={FadeInUp.delay(600)}>
                     <View style={styles.cardWhite}>
                         <View style={styles.cardHeader}>
-                            <Mail size={20} color="#4F46E5" />
+                            <Mail size={20} color="#002f34" />
                             <Typography variant="h3" style={{ marginLeft: 10 }}>Application & Contact</Typography>
                         </View>
 
@@ -359,7 +365,7 @@ export const PostJobScreen = ({ navigation }: any) => {
                             <Switch
                                 value={enableChat}
                                 onValueChange={setEnableChat}
-                                trackColor={{ false: '#E5E7EB', true: '#4F46E5' }}
+                                trackColor={{ false: '#E5E7EB', true: '#002f34' }}
                             />
                         </View>
                     </View>
@@ -370,7 +376,7 @@ export const PostJobScreen = ({ navigation }: any) => {
             {/* Bottom Actions */}
             <View style={styles.footer}>
                 <TouchableOpacity style={styles.previewBtn}>
-                    <Typography style={{ color: '#4F46E5', fontWeight: '700' }}>Preview</Typography>
+                    <Typography style={{ color: '#002f34', fontWeight: '700' }}>Preview</Typography>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.publishBtn, loading && { opacity: 0.7 }]}
@@ -378,7 +384,7 @@ export const PostJobScreen = ({ navigation }: any) => {
                     disabled={loading}
                 >
                     <LinearGradient
-                        colors={['#4F46E5', '#7C3AED']}
+                        colors={['#002f34', '#002f34']}
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                         style={StyleSheet.absoluteFill}
                     />
@@ -398,7 +404,7 @@ const styles = StyleSheet.create({
     },
     successContainer: {
         flex: 1,
-        backgroundColor: '#4F46E5',
+        backgroundColor: '#002f34',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -514,7 +520,7 @@ const styles = StyleSheet.create({
     activeChip: {
         backgroundColor: '#EEF2FF',
         borderWidth: 1,
-        borderColor: '#4F46E5',
+        borderColor: '#002f34',
     },
     chipText: {
         fontSize: 13,
@@ -522,7 +528,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     activeChipText: {
-        color: '#4F46E5',
+        color: '#002f34',
     },
     salaryRow: {
         flexDirection: 'row',
@@ -547,7 +553,7 @@ const styles = StyleSheet.create({
         width: 50,
         height: 50,
         borderRadius: 12,
-        backgroundColor: '#4F46E5',
+        backgroundColor: '#002f34',
         justifyContent: 'center',
         alignItems: 'center',
         marginLeft: 10,
@@ -566,7 +572,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
     },
     tagText: {
-        color: '#4F46E5',
+        color: '#002f34',
         fontWeight: '600',
         fontSize: 12,
     },
@@ -635,7 +641,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         overflow: 'hidden',
         elevation: 4,
-        shadowColor: '#4F46E5',
+        shadowColor: '#002f34',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,

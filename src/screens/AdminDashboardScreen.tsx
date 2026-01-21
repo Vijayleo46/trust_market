@@ -22,7 +22,8 @@ import {
     Shield,
     Bell,
     ArrowUpRight,
-    Database
+    Database,
+    ChevronLeft
 } from 'lucide-react-native';
 
 import { listingService } from '../services/listingService';
@@ -71,9 +72,17 @@ export const AdminDashboardScreen = ({ navigation }: any) => {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: '#F9FAFB' }]}>
             <View style={[styles.header, { paddingHorizontal: 24, paddingTop: 30 }]}>
-                <View>
-                    <Typography variant="h1" style={{ fontSize: 28, fontWeight: '800' }}>Admin Console</Typography>
-                    <Typography variant="bodySmall" color="#9CA3AF">System health & Overview</Typography>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                        style={styles.backBtn}
+                    >
+                        <ChevronLeft size={24} color="#002f34" strokeWidth={2.5} />
+                    </TouchableOpacity>
+                    <View>
+                        <Typography variant="h1" style={{ fontSize: 28, fontWeight: '800' }}>Admin Console</Typography>
+                        <Typography variant="bodySmall" color="#9CA3AF">System health & Overview</Typography>
+                    </View>
                 </View>
                 <TouchableOpacity style={styles.notifBtn}>
                     <Bell size={20} {...{ color: "#1F2937" } as any} />
@@ -181,6 +190,20 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 20,
+    },
+    backBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#FFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
     },
     notifBtn: {
         width: 48,

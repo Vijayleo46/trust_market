@@ -34,26 +34,22 @@ export const ProfileScreen = ({ navigation }: any) => {
 
     useEffect(() => {
         const fetchUserData = async () => {
-            if (user) {
-                console.log('=== FETCHING USER DATA FROM DATABASE ===');
-                console.log('User ID:', user.uid);
-
-                // Fetch listings count
-                const listings = await listingService.getListingsByUser(user.uid);
-                setUserListingCount(listings.length);
-                console.log('✅ Listings count:', listings.length);
-
-                // Fetch user profile from Firestore
+            if (user && isFocused) {
+                console.log('=== REFRESHING PROFILE DATA ===');
                 try {
-                    const profile = await userService.getProfile(user.uid);
+                    // Re-fetch everything to be safe
+                    const [listings, profile] = await Promise.all([
+                        listingService.getListingsByUser(user.uid),
+                        userService.getProfile(user.uid)
+                    ]);
+
+                    setUserListingCount(listings.length);
                     if (profile) {
-                        console.log('✅ Profile fetched from database:', profile);
                         setUserProfile(profile);
-                    } else {
-                        console.log('⚠️ No profile found in database, using Auth data');
+                        console.log('✅ Profile synced with backend');
                     }
                 } catch (error) {
-                    console.error('❌ Error fetching profile:', error);
+                    console.error('❌ Sync error:', error);
                 }
             }
         };
@@ -91,7 +87,10 @@ export const ProfileScreen = ({ navigation }: any) => {
                 {/* Premium Header */}
                 <View style={[styles.header, { paddingTop: 60, paddingHorizontal: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#e8ebed' }]}>
                     <Typography variant="h1" style={{ fontSize: 28, fontWeight: '700', color: '#002f34' }}>Profile</Typography>
-                    <TouchableOpacity style={styles.settingsBtn}>
+                    <TouchableOpacity
+                        style={styles.settingsBtn}
+                        onPress={() => navigation.navigate('Settings')}
+                    >
                         <Settings size={22} color="#002f34" strokeWidth={2} />
                     </TouchableOpacity>
                 </View>
@@ -100,7 +99,8 @@ export const ProfileScreen = ({ navigation }: any) => {
                 <Animated.View entering={FadeInUp.delay(200)} style={styles.profileHero}>
                     <View style={styles.avatarGlow}>
                         <Image
-                            source={{ uri: photoURL }}
+                            key={photoURL}
+                            source={{ uri: `${photoURL}${photoURL.includes('?') ? '&' : '?'}t=${Date.now()}` }}
                             style={styles.avatar}
                         />
                         <View style={styles.verifiedBadge}>

@@ -158,10 +158,10 @@ export const PostScreen = ({ route, navigation }: any) => {
                         }
                     },
                     {
-                        text: 'Go to Home',
+                        text: 'Perfect! (Polichu)',
                         onPress: () => {
                             setSuccess(false);
-                            navigation.navigate('HomeTab');
+                            navigation.navigate('MyListings');
                         }
                     }
                 ]
@@ -227,8 +227,14 @@ export const PostScreen = ({ route, navigation }: any) => {
                     <ArrowLeft size={24} color="#002f34" strokeWidth={2} />
                 </TouchableOpacity>
                 <Typography variant="h2" style={{ color: '#002f34', fontWeight: '700', fontSize: 20 }}>Sell Your Product</Typography>
-                <TouchableOpacity onPress={handlePublish} style={styles.textBtn}>
-                    <Typography style={{ color: '#002f34', fontWeight: '600' }}>Save</Typography>
+                <TouchableOpacity
+                    onPress={handlePublish}
+                    style={[styles.textBtn, loading && { opacity: 0.5 }]}
+                    disabled={loading}
+                >
+                    <Typography style={{ color: '#002f34', fontWeight: '700' }}>
+                        {loading ? '...' : 'Save'}
+                    </Typography>
                 </TouchableOpacity>
             </View>
 
@@ -245,11 +251,11 @@ export const PostScreen = ({ route, navigation }: any) => {
                         </View>
                         <View style={styles.uploadRow}>
                             <TouchableOpacity onPress={() => pickImage(false)} style={styles.uploadBtnLarge}>
-                                <ImageIcon size={32} color="#6366F1" />
+                                <ImageIcon size={32} color="#002f34" />
                                 <Typography style={styles.uploadText}>Gallery</Typography>
                             </TouchableOpacity>
                             <TouchableOpacity onPress={() => pickImage(true)} style={styles.uploadBtnLarge}>
-                                <Camera size={32} color="#6366F1" />
+                                <Camera size={32} color="#002f34" />
                                 <Typography style={styles.uploadText}>Camera</Typography>
                             </TouchableOpacity>
                         </View>
@@ -356,14 +362,14 @@ export const PostScreen = ({ route, navigation }: any) => {
                     <View style={styles.optionRow}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             <View style={[styles.iconBox, { backgroundColor: '#EEF2FF' }]}>
-                                <MessageCircle size={20} color="#6366F1" />
+                                <MessageCircle size={20} color="#002f34" />
                             </View>
                             <Typography style={{ marginLeft: 12, fontWeight: '600' }}>Enable Chat</Typography>
                         </View>
                         <Switch
                             value={details.chat}
                             onValueChange={(v) => setDetails({ ...details, chat: v })}
-                            trackColor={{ false: '#E5E7EB', true: '#6366F1' }}
+                            trackColor={{ false: '#E5E7EB', true: '#002f34' }}
                         />
                     </View>
                     <View style={styles.optionRow}>
@@ -376,7 +382,7 @@ export const PostScreen = ({ route, navigation }: any) => {
                         <Switch
                             value={details.phone}
                             onValueChange={(v) => setDetails({ ...details, phone: v })}
-                            trackColor={{ false: '#E5E7EB', true: '#6366F1' }}
+                            trackColor={{ false: '#E5E7EB', true: '#002f34' }}
                         />
                     </View>
 
@@ -412,7 +418,7 @@ export const PostScreen = ({ route, navigation }: any) => {
             {/* Bottom Actions */}
             <View style={styles.bottomBar}>
                 <TouchableOpacity style={styles.previewBtn}>
-                    <Typography style={{ color: '#6366F1', fontWeight: '700' }}>Preview</Typography>
+                    <Typography style={{ color: '#002f34', fontWeight: '700' }}>Preview</Typography>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.publishBtn, loading && { opacity: 0.7 }]}
@@ -436,7 +442,7 @@ const styles = StyleSheet.create({
     },
     successContainer: {
         flex: 1,
-        backgroundColor: '#6366F1',
+        backgroundColor: '#002f34',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -513,7 +519,7 @@ const styles = StyleSheet.create({
         marginTop: 8,
         fontSize: 12,
         fontWeight: '600',
-        color: '#6366F1',
+        color: '#002f34',
     },
     previewContainer: {
         marginRight: 10,
@@ -605,7 +611,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#F3F4F6',
     },
     activeChip: {
-        backgroundColor: '#6366F1',
+        backgroundColor: '#002f34',
     },
     chipText: {
         fontSize: 13,
@@ -685,13 +691,13 @@ const styles = StyleSheet.create({
     publishBtn: {
         flex: 2,
         height: 56,
-        backgroundColor: '#6366F1',
+        backgroundColor: '#002f34',
         borderRadius: 16,
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 4,
-        shadowColor: '#6366F1',
+        shadowColor: '#002f34',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,

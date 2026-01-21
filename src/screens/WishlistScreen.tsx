@@ -35,7 +35,8 @@ import {
     Briefcase,
     Star,
     ChevronRight,
-    ArrowRight
+    ArrowRight,
+    ChevronLeft
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Typography } from '../components/common/Typography';
@@ -69,11 +70,11 @@ export const WishlistScreen = ({ navigation }: any) => {
 
             console.log('User ID:', user.uid);
             console.log('Fetching wishlist items from Firebase...');
-            
+
             const data = await listingService.getWishlistItems(user.uid);
             console.log('✅ Wishlist items fetched:', data.length);
             console.log('Items:', data.map(item => ({ id: item.id, title: item.title, type: item.type })));
-            
+
             setListings(data);
         } catch (error: any) {
             console.error('=== WISHLIST FETCH ERROR ===');
@@ -99,7 +100,7 @@ export const WishlistScreen = ({ navigation }: any) => {
     const handleRemove = async (id: string) => {
         console.log('=== REMOVING FROM WISHLIST ===');
         console.log('Listing ID:', id);
-        
+
         try {
             const user = auth.currentUser;
             if (!user) {
@@ -110,13 +111,13 @@ export const WishlistScreen = ({ navigation }: any) => {
 
             console.log('User ID:', user.uid);
             console.log('Removing from Firebase...');
-            
+
             await listingService.removeFromWishlist(user.uid, id);
             console.log('✅ Removed from Firebase');
-            
+
             setListings(prev => prev.filter(item => item.id !== id));
             console.log('✅ UI updated');
-            
+
             Alert.alert('Success', 'Removed from wishlist');
         } catch (error: any) {
             console.error('=== REMOVE FROM WISHLIST ERROR ===');
@@ -170,42 +171,55 @@ export const WishlistScreen = ({ navigation }: any) => {
             layout={Layout.springify()}
             style={styles.cardContainer}
         >
-            <BlurView intensity={80} tint="light" style={styles.glassCard}>
-                <Image
-                    source={{ uri: item.images?.[0] || 'https://via.placeholder.com/100' }}
-                    style={styles.cardImage}
-                />
-                <View style={styles.cardInfo}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <Typography variant="h3" style={{ flex: 1, marginRight: 8 }}>{item.title}</Typography>
-                        <HeartButton id={item.id!} />
-                    </View>
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => navigation.navigate('ProductDetails', { product: item })}
+            >
+                <BlurView intensity={80} tint="light" style={styles.glassCard}>
+                    <Image
+                        source={{ uri: item.images?.[0] || 'https://via.placeholder.com/100' }}
+                        style={styles.cardImage}
+                    />
+                    <View style={styles.cardInfo}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <Typography variant="h3" style={{ flex: 1, marginRight: 8, color: '#002f34' }}>{item.title}</Typography>
+                            <HeartButton id={item.id!} />
+                        </View>
 
-                    <View style={styles.ratingRow}>
-                        <Star size={12} fill="#F59E0B" color="#F59E0B" />
-                        <Typography variant="bodySmall" style={{ marginLeft: 4, fontWeight: '600' }}>
-                            {item.rating || '4.5'}
-                        </Typography>
-                        <Typography variant="bodySmall" color="#6B7280" style={{ marginLeft: 8 }}>
-                            {item.sellerName}
-                        </Typography>
-                    </View>
+                        <View style={styles.ratingRow}>
+                            <Star size={12} fill="#F59E0B" color="#F59E0B" />
+                            <Typography variant="bodySmall" style={{ marginLeft: 4, fontWeight: '600', color: '#002f34' }}>
+                                {item.rating || '4.5'}
+                            </Typography>
+                            <Typography variant="bodySmall" color="#6B7280" style={{ marginLeft: 8 }}>
+                                {item.sellerName}
+                            </Typography>
+                        </View>
 
-                    <Typography variant="h2" style={{ color: '#4F46E5', marginTop: 4 }}>${item.price}</Typography>
+                        <Typography variant="h2" style={{ color: '#002f34', marginTop: 4, fontWeight: '900' }}>₹{item.price}</Typography>
 
-                    <View style={styles.cardActions}>
-                        <TouchableOpacity style={styles.chatBtn}>
-                            <MessageCircle size={16} color="#FFF" />
-                            <Typography style={{ color: '#FFF', fontSize: 12, fontWeight: '700', marginLeft: 6 }}>Chat</Typography>
-                        </TouchableOpacity>
-                        <View style={styles.compareRow}>
-                            {/* Simple checkbox UI */}
-                            <View style={styles.checkboxUI} />
-                            <Typography variant="bodySmall" color="#6B7280">Compare</Typography>
+                        <View style={styles.cardActions}>
+                            <TouchableOpacity
+                                style={[styles.chatBtn, { backgroundColor: '#002f34' }]}
+                                onPress={() => navigation.navigate('ChatRoom', {
+                                    chatId: 'new', // chatService will handle actual ID
+                                    otherName: item.sellerName,
+                                    productImage: item.images?.[0],
+                                    productPrice: item.price,
+                                    productTitle: item.title
+                                })}
+                            >
+                                <MessageCircle size={16} color="#FFF" />
+                                <Typography style={{ color: '#FFF', fontSize: 12, fontWeight: '700', marginLeft: 6 }}>Chat</Typography>
+                            </TouchableOpacity>
+                            <View style={styles.compareRow}>
+                                <View style={styles.checkboxUI} />
+                                <Typography variant="bodySmall" color="#6B7280">Compare</Typography>
+                            </View>
                         </View>
                     </View>
-                </View>
-            </BlurView>
+                </BlurView>
+            </TouchableOpacity>
         </Animated.View>
     );
 
@@ -216,38 +230,46 @@ export const WishlistScreen = ({ navigation }: any) => {
             layout={Layout.springify()}
             style={styles.cardContainer}
         >
-            <BlurView intensity={80} tint="light" style={styles.glassCard}>
-                <View style={styles.jobIconContainer}>
-                    <Briefcase size={24} color="#4F46E5" />
-                </View>
-                <View style={styles.cardInfo}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <Typography variant="h3" style={{ flex: 1, marginRight: 8 }}>{item.title}</Typography>
-                        <HeartButton id={item.id!} />
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => navigation.navigate('ProductDetails', { product: item })}
+            >
+                <BlurView intensity={80} tint="light" style={styles.glassCard}>
+                    <View style={styles.jobIconContainer}>
+                        <Briefcase size={24} color="#002f34" />
                     </View>
-
-                    <Typography variant="bodySmall" color="#6B7280" style={{ marginBottom: 4 }}>
-                        {item.companyName || 'Tech Corp'}
-                    </Typography>
-
-                    <View style={styles.jobMeta}>
-                        <View style={styles.jobBadge}>
-                            <Typography style={styles.jobBadgeText}>{item.jobType || 'Full Time'}</Typography>
+                    <View style={styles.cardInfo}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <Typography variant="h3" style={{ flex: 1, marginRight: 8, color: '#002f34' }}>{item.title}</Typography>
+                            <HeartButton id={item.id!} />
                         </View>
-                        <View style={[styles.jobBadge, { backgroundColor: '#EEF2FF' }]}>
-                            <Typography style={[styles.jobBadgeText, { color: '#4F46E5' }]}>{item.workMode || 'Remote'}</Typography>
+
+                        <Typography variant="bodySmall" color="#6B7280" style={{ marginBottom: 4 }}>
+                            {item.companyName || 'Tech Corp'}
+                        </Typography>
+
+                        <View style={styles.jobMeta}>
+                            <View style={styles.jobBadge}>
+                                <Typography style={styles.jobBadgeText}>{item.jobType || 'Full Time'}</Typography>
+                            </View>
+                            <View style={[styles.jobBadge, { backgroundColor: '#f1f4f5' }]}>
+                                <Typography style={[styles.jobBadgeText, { color: '#002f34' }]}>{item.workMode || 'Remote'}</Typography>
+                            </View>
+                        </View>
+
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+                            <Typography variant="h3" style={{ color: '#10B981', fontWeight: '900' }}>{item.salaryRange || '₹8L - ₹12L'}</Typography>
+                            <TouchableOpacity
+                                style={styles.applyBtn}
+                                onPress={() => Alert.alert('Applied', 'Successfully applied to ' + item.title)}
+                            >
+                                <Typography style={{ color: '#FFF', fontSize: 12, fontWeight: '700' }}>Apply Now</Typography>
+                                <ArrowRight size={14} color="#FFF" style={{ marginLeft: 4 }} />
+                            </TouchableOpacity>
                         </View>
                     </View>
-
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-                        <Typography variant="h3" style={{ color: '#10B981' }}>{item.salaryRange || '$80k - $120k'}</Typography>
-                        <TouchableOpacity style={styles.applyBtn}>
-                            <Typography style={{ color: '#FFF', fontSize: 12, fontWeight: '700' }}>Apply Now</Typography>
-                            <ArrowRight size={14} color="#FFF" style={{ marginLeft: 4 }} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </BlurView>
+                </BlurView>
+            </TouchableOpacity>
         </Animated.View>
     );
 
@@ -263,10 +285,10 @@ export const WishlistScreen = ({ navigation }: any) => {
             </Typography>
             <TouchableOpacity
                 style={styles.exploreBtn}
-                onPress={() => navigation.navigate('Home')}
+                onPress={() => navigation.navigate('Main', { screen: 'HomeTab' })}
             >
                 <LinearGradient
-                    colors={['#4F46E5', '#7C3AED']}
+                    colors={['#002f34', '#004a52']}
                     style={StyleSheet.absoluteFill}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
@@ -281,7 +303,23 @@ export const WishlistScreen = ({ navigation }: any) => {
             {/* Header */}
             <View style={styles.header}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Typography variant="h1" style={{ fontSize: 24, fontWeight: '700', color: '#002f34' }}>Wishlist</Typography>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity
+                            onPress={() => navigation.goBack()}
+                            style={{
+                                marginRight: 12,
+                                width: 40,
+                                height: 40,
+                                borderRadius: 20,
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                backgroundColor: '#f1f4f5'
+                            }}
+                        >
+                            <ChevronLeft size={24} color="#002f34" strokeWidth={2.5} />
+                        </TouchableOpacity>
+                        <Typography variant="h1" style={{ fontSize: 24, fontWeight: '700', color: '#002f34' }}>Wishlist</Typography>
+                    </View>
                     <TouchableOpacity style={styles.iconBtn}>
                         <Filter size={20} color="#002f34" strokeWidth={2} />
                     </TouchableOpacity>
@@ -323,7 +361,7 @@ export const WishlistScreen = ({ navigation }: any) => {
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4F46E5" />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#002f34" />}
             >
                 {filteredListings.length === 0 ? (
                     <EmptyState />
@@ -395,7 +433,7 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
     activeTab: {
-        backgroundColor: '#4F46E5',
+        backgroundColor: '#002f34',
     },
     tabText: {
         fontSize: 14,
@@ -411,7 +449,7 @@ const styles = StyleSheet.create({
         paddingTop: 10,
     },
     activeIconBtn: {
-        backgroundColor: '#4F46E5',
+        backgroundColor: '#002f34',
     },
     bulkActionsHeader: {
         flexDirection: 'row',
@@ -440,8 +478,8 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255, 255, 255, 0.5)',
     },
     selectedCard: {
-        backgroundColor: 'rgba(79, 70, 229, 0.1)',
-        borderColor: '#4F46E5',
+        backgroundColor: 'rgba(0, 47, 52, 0.1)',
+        borderColor: '#002f34',
     },
     imageContainer: {
         position: 'relative',
@@ -493,8 +531,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     activeCheckbox: {
-        borderColor: '#4F46E5',
-        backgroundColor: '#4F46E5',
+        borderColor: '#002f34',
+        backgroundColor: '#002f34',
     },
     checkboxInner: {
         width: 8,

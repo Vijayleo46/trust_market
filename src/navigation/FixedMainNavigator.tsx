@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
 import { PostTypeSelector } from '../components/post/PostTypeSelector';
 import { Home, Search, Plus, MessageCircle, User } from 'lucide-react-native';
-import { LiquidTabBar } from '../components/common/LiquidTabBar';
+import { ModernTabBar } from '../components/common/ModernTabBar';
 
 // Screens
 import { HomeScreen } from '../screens/HomeScreen';
@@ -99,7 +99,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
 
     return (
         <>
-            <LiquidTabBar
+            <ModernTabBar
                 tabs={tabs}
                 activeIndex={state.index}
                 onTabPress={handleTabPress}

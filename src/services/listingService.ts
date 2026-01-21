@@ -134,8 +134,7 @@ export const listingService = {
         try {
             const q = query(
                 collection(db, 'listings'),
-                where('sellerId', '==', userId),
-                orderBy('createdAt', 'desc')
+                where('sellerId', '==', userId)
             );
             const querySnapshot = await getDocs(q);
             return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing));

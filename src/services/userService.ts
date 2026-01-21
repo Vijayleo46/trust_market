@@ -12,6 +12,11 @@ export interface UserProfile {
     createdAt: any;
     updatedAt?: any;
     kycStatus: 'pending' | 'verified' | 'unverified';
+    settings?: {
+        notifications: boolean;
+        marketing: boolean;
+        biometric: boolean;
+    };
 }
 
 export const userService = {
@@ -63,6 +68,18 @@ export const userService = {
         } catch (error: any) {
             console.error("=== UPDATE PROFILE ERROR ===");
             console.error("Error:", error);
+            throw error;
+        }
+    },
+
+    // Update user settings
+    updateSettings: async (uid: string, settings: UserProfile['settings']) => {
+        try {
+            const userRef = doc(db, 'users', uid);
+            await setDoc(userRef, { settings }, { merge: true });
+            console.log('✅ Settings saved to backend');
+        } catch (error) {
+            console.error("Error updating settings: ", error);
             throw error;
         }
     }

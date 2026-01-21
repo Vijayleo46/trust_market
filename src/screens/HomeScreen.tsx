@@ -6,12 +6,13 @@ import { listingService, Listing } from '../services/listingService';
 import { useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { View as MotiView } from 'moti';
+import { View as MotiView, AnimatePresence } from 'moti';
 import { ProductCard } from '../components/ProductCard';
 import { auth } from '../core/config/firebase';
 import { userService, UserProfile } from '../services/userService';
 
 const OLX_TEAL = '#002f34';
+const PLACEHOLDERS = ['cars', 'jobs', 'mobiles', 'properties', 'everything'];
 
 const CATEGORIES = [
   { id: '1', label: 'All', value: 'All', icon: Home },
@@ -27,8 +28,16 @@ export const HomeScreen = ({ navigation }: any) => {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
-  const [location, setLocation] = useState('Kochi, Kerala');
+  const [location, setLocation] = useState('Panampilly Nagar, Kochi');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % PLACEHOLDERS.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -148,14 +157,18 @@ export const HomeScreen = ({ navigation }: any) => {
                 }}
               >
                 <Image
-                  source={{ uri: userProfile?.photoURL || auth.currentUser?.photoURL || 'https://i.pravatar.cc/150?u=default' }}
+                  key={userProfile?.photoURL || auth.currentUser?.photoURL}
+                  source={{
+                    uri: (userProfile?.photoURL || auth.currentUser?.photoURL || 'https://i.pravatar.cc/150?u=default')
+                      + (userProfile?.photoURL || auth.currentUser?.photoURL ? `?t=${Date.now()}` : '')
+                  }}
                   style={{ width: '100%', height: '100%' }}
                 />
               </TouchableOpacity>
             </View>
           </View>
 
-          <TouchableOpacity className="flex-row items-center">
+          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }}>
             <MapPin size={18} color={OLX_TEAL} />
             <Typography style={{ color: '#0F172A', fontSize: 14, fontWeight: '700', marginLeft: 6 }}>{location}</Typography>
             <View style={{ transform: [{ rotate: '90deg' }], marginLeft: 4 }}>
@@ -165,11 +178,12 @@ export const HomeScreen = ({ navigation }: any) => {
         </View>
 
         {/* Categories */}
-        <View style={{ backgroundColor: '#FFFFFF', paddingBottom: 16 }}>
+        <View style={{ backgroundColor: '#FFFFFF', paddingBottom: 16, overflow: 'visible' }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingVertical: 10 }}
+            style={{ overflow: 'visible' }}
           >
             {CATEGORIES.map((cat) => {
               const isActive = activeCategory === cat.value;
@@ -232,7 +246,22 @@ export const HomeScreen = ({ navigation }: any) => {
             }}
           >
             <Search size={22} color={OLX_TEAL} strokeWidth={2.5} />
-            <Typography style={{ color: '#94A3B8', fontSize: 16, marginLeft: 12, fontWeight: '600', fontStyle: 'italic' }}>Find cars, jobs, and more...</Typography>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12 }}>
+              <Typography style={{ color: '#94A3B8', fontSize: 16, fontWeight: '600', fontStyle: 'italic' }}>Find </Typography>
+              <AnimatePresence exitBeforeEnter>
+                <MotiView
+                  key={placeholderIndex}
+                  from={{ opacity: 0, translateY: 10 }}
+                  animate={{ opacity: 1, translateY: 0 }}
+                  exit={{ opacity: 0, translateY: -10 }}
+                  transition={{ type: 'timing', duration: 400 }}
+                >
+                  <Typography style={{ color: '#94A3B8', fontSize: 16, fontWeight: '600', fontStyle: 'italic' }}>
+                    {PLACEHOLDERS[placeholderIndex]}...
+                  </Typography>
+                </MotiView>
+              </AnimatePresence>
+            </View>
           </TouchableOpacity>
         </View>
 

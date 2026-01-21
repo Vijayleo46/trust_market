@@ -13,6 +13,7 @@ import { TabScreenWrapper } from '../components/common/TabScreenWrapper';
 // Screens
 import { HomeScreen } from '../screens/HomeScreen';
 import { SearchScreen } from '../screens/SearchScreen';
+import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { PostScreen } from '../screens/PostScreen';
 import { PostJobScreen } from '../screens/PostJobScreen';
 import { ChatScreen } from '../screens/ChatScreen';
@@ -25,6 +26,7 @@ import { KycScreen } from '../screens/KycScreen';
 import { AdminDashboardScreen } from '../screens/AdminDashboardScreen';
 import { MyListingsScreen } from '../screens/MyListingsScreen';
 import { WishlistScreen } from '../screens/WishlistScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
 
 import { authService } from '../services/authService';
 
@@ -263,6 +265,7 @@ export const MainNavigator = () => {
                     <>
                         <Stack.Screen name="Main" component={TabNavigator} />
                         <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} />
+                        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
                         <Stack.Screen name="PostItem" component={PostScreen} />
                         <Stack.Screen
                             name="PostJob"
@@ -283,6 +286,11 @@ export const MainNavigator = () => {
                         <Stack.Screen
                             name="Wishlist"
                             component={WishlistScreen}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="Settings"
+                            component={SettingsScreen}
                             options={{ headerShown: false }}
                         />
                     </>

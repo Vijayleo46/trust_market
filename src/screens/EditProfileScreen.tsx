@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Typography } from '../components/common/Typography';
-import { ChevronLeft, Camera, Save } from 'lucide-react-native';
+import { ChevronLeft, Camera, Save, Check } from 'lucide-react-native';
+import Animated, { FadeInUp, ZoomIn } from 'react-native-reanimated';
 import { auth } from '../core/config/firebase';
 import { updateProfile } from 'firebase/auth';
 import { userService } from '../services/userService';
@@ -27,6 +28,7 @@ export const EditProfileScreen = ({ navigation }: any) => {
     const [bio, setBio] = useState('');
     const [location, setLocation] = useState('');
     const [loading, setLoading] = useState(false);
+    const [success, setSuccess] = useState(false);
     const [photoURL, setPhotoURL] = useState(user?.photoURL || '');
 
     useEffect(() => {
@@ -42,6 +44,10 @@ export const EditProfileScreen = ({ navigation }: any) => {
                         setPhone(profile.phone || '');
                         setBio(profile.bio || '');
                         setLocation(profile.location || '');
+                        if (profile.photoURL) {
+                            setPhotoURL(profile.photoURL);
+                            console.log('✅ Photo URL synced from database');
+                        }
                     }
                 } catch (error) {
                     console.error('Error fetching profile:', error);
@@ -59,8 +65,34 @@ export const EditProfileScreen = ({ navigation }: any) => {
             quality: 0.8,
         });
 
-        if (!result.canceled) {
-            setPhotoURL(result.assets[0].uri);
+        if (!result.canceled && user) {
+            const selectedUri = result.assets[0].uri;
+            console.log('📸 Photo selected:', selectedUri);
+
+            // Set local URI immediately for instant preview
+            setPhotoURL(selectedUri);
+            setLoading(true);
+
+            try {
+                console.log('📤 Automatic Sync: Uploading image...');
+                const storagePath = `avatars/${user.uid}/profile_${Date.now()}.jpg`;
+                const finalUrl = await storageService.uploadImage(selectedUri, storagePath);
+
+                console.log('📤 Automatic Sync: Updating Auth & Firestore...');
+                await Promise.all([
+                    updateProfile(user, { photoURL: finalUrl }),
+                    userService.updateProfile(user.uid, { photoURL: finalUrl, updatedAt: new Date() })
+                ]);
+
+                await user.reload();
+                console.log('✅ Automatic Sync Complete');
+                Alert.alert('Success ✅', 'Profile photo automatically updated in backend!');
+            } catch (error: any) {
+                console.error('❌ Automatic Sync Failed:', error);
+                Alert.alert('Error', 'Failed to auto-sync photo: ' + error.message);
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
@@ -89,57 +121,69 @@ export const EditProfileScreen = ({ navigation }: any) => {
             console.log('📤 Step 1: Checking for image upload...');
             let finalPhotoURL = photoURL;
 
-            // Check if photoURL is a local URI that needs uploading (handles Mobile and Web)
-            if (photoURL && (photoURL.startsWith('file://') || photoURL.startsWith('content://') || photoURL.startsWith('blob:'))) {
-                console.log('📸 New image detected, uploading to storage...');
-                const storagePath = `profile_pictures/${user.uid}_${Date.now()}.jpg`;
-                finalPhotoURL = await storageService.uploadImage(photoURL, storagePath);
-                console.log('✅ Image uploaded successfully:', finalPhotoURL);
-                setPhotoURL(finalPhotoURL); // Update local state with remote URL
-            }
-
-            console.log('📤 Step 2: Updating Firebase Auth profile...');
-            // Update Firebase Auth profile
-            const authUpdateData: any = {
-                displayName: name.trim(),
-            };
-            if (finalPhotoURL) {
-                authUpdateData.photoURL = finalPhotoURL;
-            }
-
-            await updateProfile(user, authUpdateData);
-            console.log('✅ Firebase Auth updated successfully');
-
-            console.log('📤 Step 3: Saving to Firestore database...');
-            // Update Firestore user document in 'users' collection
-            await userService.updateProfile(user.uid, {
-                uid: user.uid,
-                email: user.email || '',
-                displayName: name.trim(),
-                phone: phone.trim(),
-                bio: bio.trim(),
-                location: location.trim(),
-                photoURL: finalPhotoURL || user.photoURL || '',
-                updatedAt: new Date(),
-                kycStatus: 'unverified',
-            } as any);
-            console.log('✅ Firestore database updated successfully');
-            console.log('✅ Profile saved to: users/' + user.uid);
-
-            // Reload auth state to get updated profile
-            await user.reload();
-            console.log('✅ Auth state reloaded');
-
-            Alert.alert(
-                'Success! ✅',
-                'Profile updated and saved to database successfully!',
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => navigation.goBack()
-                    }
-                ]
+            // Robust check for local URI vs remote URL
+            const isLocalUri = photoURL && (
+                photoURL.startsWith('file://') ||
+                photoURL.startsWith('content://') ||
+                photoURL.startsWith('blob:') ||
+                photoURL.startsWith('data:')
             );
+
+            if (isLocalUri) {
+                console.log('📸 New local image detected, uploading to storage...');
+                const storagePath = `avatars/${user.uid}/profile_${Date.now()}.jpg`;
+
+                try {
+                    finalPhotoURL = await storageService.uploadImage(photoURL, storagePath);
+                    console.log('✅ Image uploaded successfully. Remote URL:', finalPhotoURL);
+                } catch (uploadError: any) {
+                    console.error('❌ Image upload failed:', uploadError);
+                    throw new Error(`Image upload failed: ${uploadError.message}`);
+                }
+            } else {
+                console.log('ℹ️ Image is already a remote URL or unchanged');
+            }
+
+            console.log('📤 Step 2: Updating Firebase Auth...');
+            try {
+                await updateProfile(user, {
+                    displayName: name.trim(),
+                    photoURL: finalPhotoURL
+                });
+                console.log('✅ Auth profile updated');
+            } catch (authError: any) {
+                console.error('❌ Auth update failed:', authError);
+                // Continue anyway as Firestore update is more critical for our app
+            }
+
+            console.log('📤 Step 3: Syncing to Firestore database...');
+            const userData = {
+                uid: user.uid,
+                email: user.email,
+                displayName: name.trim(),
+                photoURL: finalPhotoURL,
+                phone: phone.trim(),
+                location: location.trim(),
+                bio: bio.trim(),
+                updatedAt: new Date(),
+            };
+
+            try {
+                await userService.updateProfile(user.uid, userData as any);
+                console.log('✅ Firestore updated successfully');
+            } catch (dbError: any) {
+                console.error('❌ Firestore update failed:', dbError);
+                throw new Error(`Database save failed: ${dbError.message}`);
+            }
+
+            console.log('📤 Step 4: Finalizing sync...');
+            await user.reload();
+
+            setSuccess(true);
+            setTimeout(() => {
+                setSuccess(false);
+                navigation.goBack();
+            }, 2000);
         } catch (error: any) {
             console.error('=== PROFILE UPDATE ERROR ===');
             console.error('Error:', error);
@@ -151,6 +195,22 @@ export const EditProfileScreen = ({ navigation }: any) => {
         }
     };
 
+    if (success) {
+        return (
+            <View style={styles.successContainer}>
+                <Animated.View entering={ZoomIn} style={styles.successIcon}>
+                    <Check size={60} color="#FFF" />
+                </Animated.View>
+                <Animated.View entering={FadeInUp.delay(300)}>
+                    <Typography variant="h1" style={{ color: '#FFF', marginTop: 20, textAlign: 'center' }}>Success!</Typography>
+                    <Typography style={{ color: 'rgba(255,255,255,0.8)', textAlign: 'center', marginTop: 8 }}>
+                        Profile details backend-il pass aayi!
+                    </Typography>
+                </Animated.View>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.container}>
             {/* Header */}
@@ -161,7 +221,19 @@ export const EditProfileScreen = ({ navigation }: any) => {
                 <Typography variant="h2" style={{ fontWeight: '700', fontSize: 20, color: '#002f34' }}>
                     Edit Profile
                 </Typography>
-                <View style={{ width: 44 }} />
+                <TouchableOpacity
+                    onPress={handleSave}
+                    disabled={loading}
+                    style={[styles.headerSaveBtn, loading && { opacity: 0.5 }]}
+                >
+                    {loading ? (
+                        <ActivityIndicator size="small" color="#002f34" />
+                    ) : (
+                        <Typography style={{ color: '#002f34', fontWeight: '700' }}>
+                            Save
+                        </Typography>
+                    )}
+                </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -169,8 +241,10 @@ export const EditProfileScreen = ({ navigation }: any) => {
                 <View style={styles.photoSection}>
                     <View style={styles.photoContainer}>
                         <Image
+                            key={photoURL}
                             source={{ uri: photoURL || 'https://i.pravatar.cc/150?u=default' }}
                             style={styles.photo}
+                            onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
                         />
                         <TouchableOpacity style={styles.cameraButton} onPress={pickImage}>
                             <Camera size={18} color="#FFF" />
@@ -246,7 +320,7 @@ export const EditProfileScreen = ({ navigation }: any) => {
 
                 {/* Save Button */}
                 <TouchableOpacity
-                    style={styles.saveButton}
+                    style={[styles.saveButton, loading && { opacity: 0.7 }]}
                     onPress={handleSave}
                     disabled={loading}
                     activeOpacity={0.8}
@@ -294,6 +368,12 @@ const styles = StyleSheet.create({
     content: {
         padding: 24,
         paddingBottom: 40,
+    },
+    headerSaveBtn: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+        backgroundColor: '#F8FAFC',
     },
     photoSection: {
         alignItems: 'center',
@@ -376,5 +456,20 @@ const styles = StyleSheet.create({
         color: '#FFF',
         fontSize: 16,
         fontWeight: '700',
+    },
+    successContainer: {
+        flex: 1,
+        backgroundColor: '#002f34',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    successIcon: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
     },
 });
