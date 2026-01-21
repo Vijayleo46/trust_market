@@ -10,12 +10,26 @@ export const storageService = {
      */
     uploadImage: async (uri: string, path: string): Promise<string> => {
         try {
-            // Fetch the image and convert to blob for Firebase
-            const response = await fetch(uri);
-            const blob = await response.blob();
+            // Using XMLHttpRequest for better reliability in React Native instead of fetch for blobs
+            const blob: any = await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.onload = function () {
+                    resolve(xhr.response);
+                };
+                xhr.onerror = function (e) {
+                    console.error('XMLHttpRequest failed:', e);
+                    reject(new TypeError("Network request failed"));
+                };
+                xhr.responseType = "blob";
+                xhr.open("GET", uri, true);
+                xhr.send(null);
+            });
 
             const storageRef = ref(storage, path);
             await uploadBytes(storageRef, blob);
+
+            // We're done with the blob, close it
+            if (blob.close) blob.close();
 
             const downloadURL = await getDownloadURL(storageRef);
             return downloadURL;

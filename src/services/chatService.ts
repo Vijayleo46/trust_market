@@ -9,7 +9,8 @@ import {
     Timestamp,
     doc,
     setDoc,
-    updateDoc
+    updateDoc,
+    getDocs
 } from 'firebase/firestore';
 import { db } from '../core/config/firebase';
 
@@ -75,7 +76,12 @@ export const chatService = {
                 jobRelated: listingType === 'job',
             }, { merge: true });
 
-            console.log('✅ Chat thread created/updated');
+            console.log('✅ Chat thread created/updated with ID:', threadId);
+            console.log('Metadata:', {
+                listingType: listingType || 'product',
+                listingId: listingId || '',
+                listingTitle: listingTitle || ''
+            });
             return threadId;
         } catch (error: any) {
             console.error('=== CREATE CHAT ERROR ===');

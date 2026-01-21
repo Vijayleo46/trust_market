@@ -49,14 +49,16 @@ export const PostScreen = ({ route, navigation }: any) => {
         } else {
             result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [4, 3],
+                allowsMultipleSelection: true,
+                selectionLimit: 5 - images.length,
                 quality: 0.7,
             });
         }
 
         if (!result.canceled) {
-            setImages([...images, result.assets[0].uri]);
+            const selectedUris = result.assets.map(asset => asset.uri);
+            const combinedImages = [...images, ...selectedUris].slice(0, 5);
+            setImages(combinedImages);
         }
     };
 
@@ -109,9 +111,12 @@ export const PostScreen = ({ route, navigation }: any) => {
 
             if (!user) {
                 console.error('No user logged in!');
-                Alert.alert('Login Required', 'You must be logged in to post. Please login first.');
+                Alert.alert(
+                    'Login Required',
+                    'You must be logged in to post. Please login and try again.',
+                    [{ text: 'Go to Login', onPress: () => navigation.navigate('Login') }]
+                );
                 setLoading(false);
-                navigation.navigate('Login');
                 return;
             }
 
@@ -132,7 +137,7 @@ export const PostScreen = ({ route, navigation }: any) => {
                 isBoosted,
                 images: imageUrls,
                 sellerId: user.uid,
-                sellerName: user.displayName || user.email || 'User',
+                sellerName: user.displayName || user.email || 'Leo',
                 rating: 0,
                 type: 'product' as const,
                 location: location,
@@ -141,6 +146,11 @@ export const PostScreen = ({ route, navigation }: any) => {
             console.log('Creating listing with data:', JSON.stringify(listingData, null, 2));
             const listingId = await listingService.createListing(listingData);
             console.log('✅✅✅ SUCCESS! Listing created with ID:', listingId);
+
+            // Verify if chat needs to be initialized if user chose to enable it
+            // usually chat is initialized when someone clicks "Chat with Seller"
+            // but we could pre-create something if needed. For now, we just log.
+            console.log('Chat enabled:', details.chat);
 
             setSuccess(true);
             console.log('Success state set to true');

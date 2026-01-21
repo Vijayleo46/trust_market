@@ -23,6 +23,7 @@ import { MyListingsScreen } from '../screens/MyListingsScreen';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { WishlistScreen } from '../screens/WishlistScreen';
 import { LandingScreen } from '../screens/LandingScreen';
+import { ImageViewerScreen } from '../screens/ImageViewerScreen';
 
 import { authService } from '../services/authService';
 
@@ -207,6 +208,15 @@ export const FixedMainNavigator = () => {
                             name="Wishlist"
                             component={WishlistScreen}
                             options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="ImageViewer"
+                            component={ImageViewerScreen}
+                            options={{
+                                headerShown: false,
+                                presentation: 'modal',
+                                animation: 'fade',
+                            }}
                         />
                     </>
                 )}

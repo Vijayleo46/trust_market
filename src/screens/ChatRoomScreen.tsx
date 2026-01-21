@@ -10,7 +10,8 @@ import {
     SafeAreaView,
     Image,
     Dimensions,
-    StatusBar
+    StatusBar,
+    Alert
 } from 'react-native';
 import Animated, { FadeInDown, FadeInRight, SlideInRight } from 'react-native-reanimated';
 import { MotiView } from 'moti';
@@ -19,6 +20,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { Typography } from '../components/common/Typography';
 import { ChevronLeft, Phone, Video, MoreVertical, Send, Paperclip, Smile } from 'lucide-react-native';
 import { chatService, Message } from '../services/chatService';
+import { listingService } from '../services/listingService';
 import { auth } from '../core/config/firebase';
 
 const { width } = Dimensions.get('window');
@@ -31,7 +33,8 @@ export const ChatRoomScreen = ({ route, navigation }: any) => {
         otherAvatar = 'https://i.pravatar.cc/150?u=seller',
         productImage = '',
         productPrice = '',
-        productTitle = ''
+        productTitle = '',
+        productId = ''
     } = route?.params || {};
 
     const [messages, setMessages] = useState<Message[]>([]);
@@ -204,7 +207,26 @@ export const ChatRoomScreen = ({ route, navigation }: any) => {
                             </Typography>
                             <Typography style={styles.productPrice}>{productPrice}</Typography>
                         </View>
-                        <TouchableOpacity style={styles.viewProductButton}>
+                        <TouchableOpacity
+                            onPress={async () => {
+                                if (productId) {
+                                    setLoading(true);
+                                    try {
+                                        const productData = await listingService.getListingById(productId);
+                                        if (productData) {
+                                            navigation.navigate('ProductDetails', { product: productData });
+                                        } else {
+                                            Alert.alert('Error', 'Product details not found.');
+                                        }
+                                    } catch (err) {
+                                        Alert.alert('Error', 'Failed to fetch product details.');
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                }
+                            }}
+                            style={styles.viewProductButton}
+                        >
                             <Typography style={styles.viewProductText}>View</Typography>
                         </TouchableOpacity>
                     </MotiView>

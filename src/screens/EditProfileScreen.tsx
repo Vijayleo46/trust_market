@@ -22,7 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 export const EditProfileScreen = ({ navigation }: any) => {
     const user = auth.currentUser;
-    const [name, setName] = useState(user?.displayName || '');
+    const [name, setName] = useState(user?.displayName || 'Leo');
     const [email, setEmail] = useState(user?.email || '');
     const [phone, setPhone] = useState('');
     const [bio, setBio] = useState('');
@@ -58,41 +58,72 @@ export const EditProfileScreen = ({ navigation }: any) => {
     }, [user]);
 
     const pickImage = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-        });
+        Alert.alert(
+            'Change Profile Photo',
+            'Choose a source',
+            [
+                {
+                    text: 'Camera',
+                    onPress: async () => {
+                        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+                        if (status !== 'granted') {
+                            Alert.alert('Permission needed', 'Camera access is required to take photos.');
+                            return;
+                        }
+                        const result = await ImagePicker.launchCameraAsync({
+                            allowsEditing: true,
+                            aspect: [1, 1],
+                            quality: 0.8,
+                        });
+                        if (!result.canceled) handleImageSelected(result.assets[0].uri);
+                    },
+                },
+                {
+                    text: 'Gallery',
+                    onPress: async () => {
+                        const result = await ImagePicker.launchImageLibraryAsync({
+                            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                            allowsEditing: true,
+                            aspect: [1, 1],
+                            quality: 0.8,
+                        });
+                        if (!result.canceled) handleImageSelected(result.assets[0].uri);
+                    },
+                },
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+            ]
+        );
+    };
 
-        if (!result.canceled && user) {
-            const selectedUri = result.assets[0].uri;
-            console.log('📸 Photo selected:', selectedUri);
+    const handleImageSelected = async (uri: string) => {
+        if (!user) return;
 
-            // Set local URI immediately for instant preview
-            setPhotoURL(selectedUri);
-            setLoading(true);
+        console.log('📸 Photo selected:', uri);
+        setPhotoURL(uri);
+        setLoading(true);
 
-            try {
-                console.log('📤 Automatic Sync: Uploading image...');
-                const storagePath = `avatars/${user.uid}/profile_${Date.now()}.jpg`;
-                const finalUrl = await storageService.uploadImage(selectedUri, storagePath);
+        try {
+            console.log('📤 Automatic Sync: Uploading image...');
+            const storagePath = `avatars/${user.uid}/profile_${Date.now()}.jpg`;
+            const finalUrl = await storageService.uploadImage(uri, storagePath);
 
-                console.log('📤 Automatic Sync: Updating Auth & Firestore...');
-                await Promise.all([
-                    updateProfile(user, { photoURL: finalUrl }),
-                    userService.updateProfile(user.uid, { photoURL: finalUrl, updatedAt: new Date() })
-                ]);
+            console.log('📤 Automatic Sync: Updating Auth & Firestore...');
+            await Promise.all([
+                updateProfile(user, { photoURL: finalUrl }),
+                userService.updateProfile(user.uid, { photoURL: finalUrl, updatedAt: new Date() })
+            ]);
 
-                await user.reload();
-                console.log('✅ Automatic Sync Complete');
-                Alert.alert('Success ✅', 'Profile photo automatically updated in backend!');
-            } catch (error: any) {
-                console.error('❌ Automatic Sync Failed:', error);
-                Alert.alert('Error', 'Failed to auto-sync photo: ' + error.message);
-            } finally {
-                setLoading(false);
-            }
+            await user.reload();
+            console.log('✅ Automatic Sync Complete');
+            Alert.alert('Success ✅', 'Profile photo updated! 🚀');
+        } catch (error: any) {
+            console.error('❌ Automatic Sync Failed:', error);
+            Alert.alert('Error', 'Failed to update photo: ' + error.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -250,32 +281,6 @@ export const EditProfileScreen = ({ navigation }: any) => {
                             <Camera size={18} color="#FFF" />
                         </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                        style={{ marginTop: 12 }}
-                        onPress={async () => {
-                            const sampleUrl = 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200&auto=format&fit=crop';
-                            setPhotoURL(sampleUrl);
-                            setLoading(true);
-                            try {
-                                if (user) {
-                                    await Promise.all([
-                                        updateProfile(user, { photoURL: sampleUrl }),
-                                        userService.updateProfile(user.uid, { photoURL: sampleUrl, updatedAt: new Date() })
-                                    ]);
-                                    await user.reload();
-                                    Alert.alert('Success ✅', 'Sample photo applied and synced!');
-                                }
-                            } catch (e: any) {
-                                Alert.alert('Error', e.message);
-                            } finally {
-                                setLoading(false);
-                            }
-                        }}
-                    >
-                        <Typography variant="bodySmall" color="#002f34" style={{ fontWeight: '700', textDecorationLine: 'underline' }}>
-                            Set Sample Photo
-                        </Typography>
-                    </TouchableOpacity>
                 </View>
 
                 {/* Form Fields */}

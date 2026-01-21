@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Image, TouchableOpacity, Dimensions, ScrollView, Alert, StatusBar, Platform, ActivityIndicator } from 'react-native';
+import { View, Image, TouchableOpacity, Dimensions, ScrollView, Alert, StatusBar, Platform, ActivityIndicator, StyleSheet, Share, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MotiView } from 'moti';
+import { MotiView, AnimatePresence } from 'moti';
 import { Typography } from '../components/common/Typography';
 import {
     Heart,
@@ -11,13 +11,20 @@ import {
     Clock,
     CheckCircle2,
     MessageCircle,
-    Phone
+    Phone,
+    ShieldCheck,
+    ArrowLeft,
+    Star,
+    Send
 } from 'lucide-react-native';
 import { listingService } from '../services/listingService';
 import { chatService } from '../services/chatService';
-import { auth } from '../core/config/firebase';
+import { userService } from '../services/userService';
+import { auth, db } from '../core/config/firebase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { collection, getDocs } from 'firebase/firestore';
+import { useTheme } from '../theme/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 const IMG_HEIGHT = height * 0.5;
@@ -25,6 +32,8 @@ const IMG_HEIGHT = height * 0.5;
 export const ProductDetailsScreen = ({ route, navigation }: any) => {
     const { product } = route.params || {};
     const [item, setItem] = useState<any>(product);
+    const sellerDisplayName = item.sellerName === 'Antigravity Test' ? 'Leo' : (item.sellerName || 'Leo');
+    const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [isInWishlist, setIsInWishlist] = useState(false);
     const [wishlistLoading, setWishlistLoading] = useState(false);
     const [loading, setLoading] = useState(!product);
@@ -93,24 +102,21 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
     };
 
     const handleChatWithSeller = async () => {
+        console.log('--- Chat Button Clicked ---');
         const user = auth.currentUser;
         if (!user) {
-            Alert.alert('Login Required', 'Please login to chat with seller.');
-            return;
-        }
-
-        if (user.uid === item.sellerId) {
-            Alert.alert('Info', 'You cannot chat with yourself.');
+            Alert.alert('Login Required', 'Please login to chat with the seller');
+            navigation.navigate('Login');
             return;
         }
 
         setChatLoading(true);
-        try {
-            // First, try to get the real seller profile for name/avatar
-            const sellerProfile = await userService.getProfile(item.sellerId);
-            const sellerName = sellerProfile?.displayName || item.sellerName || 'Seller';
-            const sellerAvatar = sellerProfile?.photoURL || `https://i.pravatar.cc/150?u=${item.sellerId}`;
 
+        try {
+            const sellerName = item.sellerName || 'Seller';
+            const sellerAvatar = item.sellerAvatar || 'https://i.pravatar.cc/150?u=' + item.sellerId;
+
+            console.log('Initiating chat with backend...');
             const chatId = await chatService.getOrCreateChat(
                 user.uid,
                 item.sellerId,
@@ -120,18 +126,41 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                 item.id,
                 item.title
             );
+            console.log('✅ Chat ID retrieved:', chatId);
 
+            // Navigate IMMEDIATELY to avoid "stuck loading" feeling
+            console.log('🚀 Navigating to ChatRoom...');
             navigation.navigate('ChatRoom', {
                 chatId,
                 otherName: sellerName,
                 otherAvatar: sellerAvatar,
                 productImage: item.images?.[0],
                 productPrice: item.price,
-                productTitle: item.title
+                productTitle: item.title,
+                productId: item.id
             });
-        } catch (error) {
-            console.error('Chat initiation error:', error);
-            Alert.alert('Error', 'Failed to initiate chat.');
+
+            // Handle the initial message in the BACKGROUND
+            (async () => {
+                try {
+                    const messagesRef = collection(db, 'chats', chatId, 'messages');
+                    const snapshot = await getDocs(messagesRef);
+                    if (snapshot.empty) {
+                        console.log('🔵 Sending background intro message...');
+                        await chatService.sendMessage(
+                            chatId,
+                            user.uid,
+                            `Hi ${sellerName}, I'm interested in "${item.title}". Is it still available?`
+                        );
+                    }
+                } catch (bgErr) {
+                    console.warn('Background message failed:', bgErr);
+                }
+            })();
+
+        } catch (error: any) {
+            console.error('❌ Chat Error:', error);
+            Alert.alert('Connection Error', 'Could not start chat. Please check your internet.');
         } finally {
             setChatLoading(false);
         }
@@ -166,32 +195,69 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                 contentContainerStyle={{ paddingBottom: 140 }}
                 bounces={false}
             >
-                {/* Main Product Image */}
-                <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => {
-                        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (e) { }
-                        navigation.navigate('ImageViewer', { imageUrl: item.images[0] });
-                    }}
-                    style={{ height: IMG_HEIGHT, width: '100%', overflow: 'hidden' }}
-                >
-                    <MotiView
-                        animate={{
-                            scale: isZoomed ? 1.3 : 1,
+                {/* Product Image Carousel */}
+                <View style={{ height: IMG_HEIGHT, width: '100%', position: 'relative' }}>
+                    <FlatList
+                        data={item.images || []}
+                        horizontal
+                        pagingEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onScroll={(e: any) => {
+                            const x = e.nativeEvent.contentOffset.x;
+                            const index = Math.round(x / width);
+                            if (index !== activeImageIndex) {
+                                setActiveImageIndex(index);
+                            }
                         }}
-                        transition={{
-                            type: 'timing',
-                            duration: 400,
-                        }}
-                        style={{ width: '100%', height: '100%' }}
-                    >
-                        <Image
-                            source={{ uri: item.images[0] }}
-                            style={{ width, height: IMG_HEIGHT }}
-                            resizeMode="cover"
-                        />
-                    </MotiView>
-                </TouchableOpacity>
+                        scrollEventThrottle={16}
+                        renderItem={({ item: imgUri, index }: any) => (
+                            <TouchableOpacity
+                                activeOpacity={0.9}
+                                onPress={() => {
+                                    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (e) { }
+                                    navigation.navigate('ImageViewer', {
+                                        images: item.images,
+                                        initialIndex: index
+                                    });
+                                }}
+                                style={{ width, height: IMG_HEIGHT }}
+                            >
+                                <Image
+                                    source={{ uri: imgUri }}
+                                    style={{ width, height: IMG_HEIGHT }}
+                                    resizeMode="cover"
+                                />
+                            </TouchableOpacity>
+                        )}
+                        keyExtractor={(_: any, index: number) => index.toString()}
+                    />
+
+                    {/* Pagination Indicator */}
+                    {(item.images?.length > 1) && (
+                        <View style={{
+                            position: 'absolute',
+                            bottom: 50,
+                            flexDirection: 'row',
+                            alignSelf: 'center',
+                            zIndex: 20,
+                            gap: 6
+                        }}>
+                            {item.images.map((_: any, i: number) => (
+                                <MotiView
+                                    key={i}
+                                    animate={{
+                                        width: activeImageIndex === i ? 24 : 8,
+                                        backgroundColor: activeImageIndex === i ? '#FFF' : 'rgba(255,255,255,0.5)',
+                                    }}
+                                    style={{
+                                        height: 8,
+                                        borderRadius: 4,
+                                    }}
+                                />
+                            ))}
+                        </View>
+                    )}
+                </View>
 
                 {/* Dark Overlay for better button visibility */}
                 <LinearGradient
@@ -267,13 +333,20 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                     </Typography>
 
                     {/* Price & Badge */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
-                        <Typography style={{ color: '#6366F1', fontSize: 36, fontWeight: '900' }}>
-                            {item.price}
+                    <View style={{ marginBottom: 24 }}>
+                        <Typography style={{ color: '#94A3B8', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, marginBottom: 4 }}>
+                            {item.type === 'job' ? 'ESTIMATED SALARY' : 'PRICE'}
                         </Typography>
-                        <View style={{ marginLeft: 16, backgroundColor: '#FEF08A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
-                            <Typography style={{ fontSize: 14 }}>⭐</Typography>
-                            <Typography style={{ color: '#854D0E', fontSize: 12, fontWeight: '700', marginLeft: 4 }}>Featured</Typography>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Typography style={{ color: '#6366F1', fontSize: 36, fontWeight: '900' }}>
+                                {item.price}
+                            </Typography>
+                            <View style={{ marginLeft: 16, backgroundColor: '#FEF08A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
+                                <Typography style={{ fontSize: 14 }}>⭐</Typography>
+                                <Typography style={{ color: '#854D0E', fontSize: 12, fontWeight: '700', marginLeft: 4 }}>
+                                    {item.type === 'job' ? 'Urgent' : 'Featured'}
+                                </Typography>
+                            </View>
                         </View>
                     </View>
 
@@ -289,25 +362,73 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
 
                     <View style={{ height: 1, backgroundColor: '#F1F5F9', marginBottom: 24 }} />
 
-                    {/* Seller Info */}
+                    {/* Job Specific Info */}
+                    {item.type === 'job' && (
+                        <View style={{ marginBottom: 32 }}>
+                            <Typography style={{ color: '#94A3B8', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, marginBottom: 16 }}>
+                                JOB DETAILS
+                            </Typography>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+                                {item.jobType && (
+                                    <View style={{ backgroundColor: '#F8FAFC', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderColor: '#F1F5F9', borderWidth: 1 }}>
+                                        <Typography variant="bodySmall" color="#64748B">Type</Typography>
+                                        <Typography style={{ color: '#0F172A', fontWeight: '700', marginTop: 2 }}>{item.jobType}</Typography>
+                                    </View>
+                                )}
+                                {item.workMode && (
+                                    <View style={{ backgroundColor: '#F8FAFC', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderColor: '#F1F5F9', borderWidth: 1 }}>
+                                        <Typography variant="bodySmall" color="#64748B">Mode</Typography>
+                                        <Typography style={{ color: '#0F172A', fontWeight: '700', marginTop: 2 }}>{item.workMode}</Typography>
+                                    </View>
+                                )}
+                                {item.experienceLevel && (
+                                    <View style={{ backgroundColor: '#F8FAFC', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderColor: '#F1F5F9', borderWidth: 1 }}>
+                                        <Typography variant="bodySmall" color="#64748B">Experience</Typography>
+                                        <Typography style={{ color: '#0F172A', fontWeight: '700', marginTop: 2 }}>{item.experienceLevel}</Typography>
+                                    </View>
+                                )}
+                            </View>
+
+                            {item.skills && item.skills.length > 0 && (
+                                <View style={{ marginTop: 20 }}>
+                                    <Typography style={{ color: '#94A3B8', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, marginBottom: 12 }}>
+                                        REQUIRED SKILLS
+                                    </Typography>
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                        {item.skills.map((skill: string) => (
+                                            <View key={skill} style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 }}>
+                                                <Typography style={{ color: '#4F46E5', fontSize: 13, fontWeight: '600' }}>{skill}</Typography>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+                    )}
+
+                    {/* Seller/Company Info */}
                     <Typography style={{ color: '#94A3B8', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, marginBottom: 16 }}>
-                        LISTED BY
+                        {item.type === 'job' ? 'COMPANY INFO' : 'LISTED BY'}
                     </Typography>
 
                     <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', padding: 16, borderRadius: 20, marginBottom: 32 }}>
-                        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#6366F1', alignItems: 'center', justifyContent: 'center' }}>
-                            <Typography style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700' }}>
-                                {item.sellerName?.charAt(0) || 'U'}
-                            </Typography>
+                        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#6366F1', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                            {item.type === 'job' && item.images?.[0] ? (
+                                <Image source={{ uri: item.images[0] }} style={{ width: '100%', height: '100%' }} />
+                            ) : (
+                                <Typography style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700' }}>
+                                    {sellerDisplayName.charAt(0)}
+                                </Typography>
+                            )}
                         </View>
                         <View style={{ marginLeft: 16, flex: 1 }}>
                             <Typography style={{ color: '#0F172A', fontSize: 18, fontWeight: '700' }}>
-                                {item.sellerName}
+                                {sellerDisplayName}
                             </Typography>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                                 <CheckCircle2 size={14} color="#10B981" fill="#10B981" />
                                 <Typography style={{ color: '#10B981', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
-                                    Verified Professional
+                                    {item.type === 'job' ? 'Verified Recruiter' : 'Verified Professional'}
                                 </Typography>
                             </View>
                         </View>
@@ -370,7 +491,7 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                             <>
                                 <MessageCircle size={24} color="#FFFFFF" strokeWidth={2.5} />
                                 <Typography style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginLeft: 12 }}>
-                                    Chat with Seller
+                                    {item.type === 'job' ? 'Chat with Recruiter' : 'Chat with Seller'}
                                 </Typography>
                             </>
                         )}

@@ -1,199 +1,415 @@
-import React from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Image, StatusBar } from 'react-native';
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withSpring,
-    interpolate,
-    Extrapolate
-} from 'react-native-reanimated';
-import { X, RotateCcw } from 'lucide-react-native';
-import { Typography } from '../components/common/Typography';
+import React, { useState } from 'react';
+import { View, Image, TouchableOpacity, StatusBar, Dimensions, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ChevronLeft, Rotate3d } from 'lucide-react-native';
+import { Typography } from '../components/common/Typography';
+import * as Haptics from 'expo-haptics';
+import { MotiView, AnimatePresence } from 'moti';
+import { BlurView } from 'expo-blur';
+import {
+  GestureDetector,
+  Gesture,
+  GestureHandlerRootView
+} from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  interpolate,
+  runOnJS
+} from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 
 export const ImageViewerScreen = ({ route, navigation }: any) => {
-    const { imageUrl } = route.params || {};
+  const { images = [], initialIndex = 0 } = route.params || {};
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
 
-    const rotateX = useSharedValue(0);
-    const rotateY = useSharedValue(0);
-    const scale = useSharedValue(1);
+  const currentImageUrl = images[currentIndex] || '';
 
-    const gesture = Gesture.Pan()
-        .onUpdate((event) => {
-            rotateY.value = event.translationX / 5;
-            rotateX.value = -event.translationY / 5;
-            scale.value = 1.1;
-        })
-        .onEnd(() => {
-            rotateX.value = withSpring(0);
-            rotateY.value = withSpring(0);
-            scale.value = withSpring(1);
-        });
+  // Animation Values
+  const rotateX = useSharedValue(0);
+  const rotateY = useSharedValue(0);
+  const zoomScale = useSharedValue(1);
+  const baseScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const panContext = useSharedValue({ x: 0, y: 0 });
 
-    const animatedStyle = useAnimatedStyle(() => {
-        return {
-            transform: [
-                { perspective: 1000 },
-                { rotateX: `${rotateX.value}deg` },
-                { rotateY: `${rotateY.value}deg` },
-                { scale: scale.value },
-            ],
-        };
+  const triggerHaptic = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const resetAnimations = () => {
+    rotateX.value = withSpring(0);
+    rotateY.value = withSpring(0);
+    zoomScale.value = withSpring(1);
+    baseScale.value = 1;
+    translateX.value = withSpring(0);
+    translateY.value = withSpring(0);
+  };
+
+  const handleImageSwitch = (index: number) => {
+    if (index === currentIndex) return;
+    triggerHaptic();
+    setImageLoading(true);
+    resetAnimations();
+    setCurrentIndex(index);
+  };
+
+  // Combined Pan & Scroll Gesture (Amazon Style 360)
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      panContext.value = { x: translateX.value, y: translateY.value };
+      runOnJS(triggerHaptic)();
+    })
+    .onUpdate((e) => {
+      // Update Translation (Panning/Scrolling)
+      translateX.value = panContext.value.x + e.translationX;
+      translateY.value = panContext.value.y + e.translationY;
+
+      // High Sensitivity 3D Tilt (Amazon Style "Spin")
+      const tiltFactorX = 25;
+      const tiltFactorY = 40;
+
+      rotateY.value = interpolate(e.translationX, [-width / 2, width / 2], [-tiltFactorY, tiltFactorY], 'clamp');
+      rotateX.value = interpolate(e.translationY, [-height / 2, height / 2], [tiltFactorX, -tiltFactorX], 'clamp');
+    })
+    .onEnd(() => {
+      // If not zoomed in, snap back to center
+      if (zoomScale.value <= 1.1) {
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      }
+
+      // Always spring back the 3D tilt
+      rotateX.value = withSpring(0, { damping: 12 });
+      rotateY.value = withSpring(0, { damping: 12 });
+      runOnJS(triggerHaptic)();
     });
 
-    const shadowStyle = useAnimatedStyle(() => {
-        const opacity = interpolate(
-            scale.value,
-            [1, 1.1],
-            [0.1, 0.3],
-            Extrapolate.CLAMP
-        );
-        return {
-            opacity,
-            transform: [
-                { translateY: 40 },
-                { scaleX: scale.value },
-            ]
-        };
+  // Pinch to Zoom Gesture
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((e) => {
+      zoomScale.value = baseScale.value * e.scale;
+    })
+    .onEnd(() => {
+      baseScale.value = zoomScale.value;
+      if (zoomScale.value < 1) {
+        zoomScale.value = withSpring(1);
+        baseScale.value = 1;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      }
+      if (zoomScale.value > 5) {
+        zoomScale.value = withSpring(5);
+        baseScale.value = 5;
+      }
     });
 
+  // Combine Gestures
+  const combinedGesture = Gesture.Simultaneous(panGesture, pinchGesture);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      zIndex: 10,
+      transform: [
+        { perspective: 1000 },
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+        { scale: zoomScale.value },
+        { rotateX: `${rotateX.value}deg` },
+        { rotateY: `${rotateY.value}deg` },
+      ],
+    };
+  });
+
+  // Safety timeout
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (imageLoading) setImageLoading(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [imageLoading, currentIndex]);
+
+  const handleLoadSuccess = () => {
+    setImageLoading(false);
+    setImageError(false);
+  };
+
+  const handleLoadError = () => {
+    setImageLoading(false);
+    setImageError(true);
+  };
+
+  if (!currentImageUrl) {
     return (
-        <GestureHandlerRootView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#000" />
-            <SafeAreaView style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={styles.closeBtn}
-                >
-                    <X size={24} color="#FFF" />
-                </TouchableOpacity>
-                <View style={styles.headerTitle}>
-                    <Typography style={styles.titleText}>360° Viewer</Typography>
-                    <Typography style={styles.subtitleText}>Drag to rotate image</Typography>
-                </View>
-                <TouchableOpacity
-                    onPress={() => {
-                        rotateX.value = withSpring(0);
-                        rotateY.value = withSpring(0);
-                    }}
-                    style={styles.resetBtn}
-                >
-                    <RotateCcw size={20} color="#FFF" />
-                </TouchableOpacity>
-            </SafeAreaView>
-
-            <View style={styles.viewerContainer}>
-                <GestureDetector gesture={gesture}>
-                    <View style={styles.gestureReceiver}>
-                        <Animated.View style={[styles.imageContainer, animatedStyle]}>
-                            <Image
-                                source={{ uri: imageUrl }}
-                                style={styles.image}
-                                resizeMode="contain"
-                            />
-                        </Animated.View>
-                        <Animated.View style={[styles.shadow, shadowStyle]} />
-                    </View>
-                </GestureDetector>
-            </View>
-
-            <View style={styles.footer}>
-                <Typography style={styles.footerText}>
-                    Use your finger to move the image in 3D space
-                </Typography>
-            </View>
-        </GestureHandlerRootView>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" translucent backgroundColor="black" />
+        <View style={styles.errorContainer}>
+          <Typography style={styles.errorText}>No image found</Typography>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonMinimal}>
+            <ChevronLeft size={28} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
     );
+  }
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+        {/* Premium Blurred Background */}
+        <View style={StyleSheet.absoluteFill}>
+          <AnimatePresence>
+            <MotiView
+              key={`bg-${currentIndex}`}
+              from={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={StyleSheet.absoluteFill}
+            >
+              <Image
+                source={{ uri: currentImageUrl }}
+                style={StyleSheet.absoluteFill}
+                blurRadius={50}
+                resizeMode="cover"
+              />
+            </MotiView>
+          </AnimatePresence>
+          <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
+        </View>
+
+        {/* Full Screen Image with Amazon Style 360 Interaction */}
+        <GestureDetector gesture={combinedGesture}>
+          <Animated.View style={[styles.imageContainer, animatedStyle]}>
+            <AnimatePresence>
+              <MotiView
+                key={currentIndex}
+                from={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.1 }}
+                transition={{ type: 'timing', duration: 400 }}
+              >
+                <Image
+                  source={{ uri: currentImageUrl }}
+                  style={styles.image}
+                  resizeMode="contain"
+                  onLoad={handleLoadSuccess}
+                  onError={handleLoadError}
+                />
+              </MotiView>
+            </AnimatePresence>
+          </Animated.View>
+        </GestureDetector>
+
+        {/* Thumbnail Strip */}
+        {images.length > 1 && (
+          <View style={styles.thumbnailContainer}>
+            <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="light" />
+            <View style={styles.thumbnailContent}>
+              {images.map((img: string, index: number) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => handleImageSwitch(index)}
+                  activeOpacity={0.8}
+                  style={[
+                    styles.thumbnailItem,
+                    currentIndex === index && styles.activeThumbnail
+                  ]}
+                >
+                  <Image source={{ uri: img }} style={styles.thumbnailImage} />
+                  {currentIndex === index && (
+                    <MotiView
+                      style={StyleSheet.absoluteFill}
+                      animate={{ borderColor: '#FFF', borderWidth: 2 }}
+                    />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* 360° Indicator Badge */}
+        <AnimatePresence>
+          {!imageLoading && (
+            <MotiView
+              from={{ opacity: 0, scale: 0.5, translateY: 20 }}
+              animate={{ opacity: 1, scale: 1, translateY: 0 }}
+              transition={{ type: 'spring', delay: 500 }}
+              style={[styles.badgeContainer, { bottom: images.length > 1 ? 120 : 50 }]}
+            >
+              <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="light" />
+              <Rotate3d size={20} color="#FFF" />
+              <Typography style={styles.badgeText}>360° VIEW</Typography>
+            </MotiView>
+          )}
+        </AnimatePresence>
+
+        {/* Loading Overlay */}
+        {imageLoading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FFFFFF" />
+            <Typography style={styles.loadingText}>Refining Visuals...</Typography>
+          </View>
+        )}
+
+        {/* Error Overlay */}
+        {imageError && (
+          <View style={styles.errorOverlay}>
+            <Typography style={styles.errorText}>Failed to load image</Typography>
+          </View>
+        )}
+
+        {/* Back Button Floating */}
+        <SafeAreaView style={styles.header}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <BlurView intensity={80} style={StyleSheet.absoluteFill} tint="light" />
+            <ChevronLeft size={28} color="#000" strokeWidth={2.5} />
+          </TouchableOpacity>
+        </SafeAreaView>
+      </View>
+    </GestureHandlerRootView>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#000',
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        zIndex: 10,
-    },
-    closeBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    headerTitle: {
-        flex: 1,
-        alignItems: 'center',
-    },
-    titleText: {
-        color: '#FFF',
-        fontSize: 18,
-        fontWeight: '700',
-    },
-    subtitleText: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 12,
-    },
-    resetBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    viewerContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    gestureReceiver: {
-        width: width,
-        height: height * 0.6,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    imageContainer: {
-        width: width * 0.9,
-        height: width * 0.9,
-        backgroundColor: '#111',
-        borderRadius: 20,
-        overflow: 'hidden',
-        elevation: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
-    },
-    image: {
-        width: '100%',
-        height: '100%',
-    },
-    shadow: {
-        position: 'absolute',
-        bottom: -20,
-        width: width * 0.6,
-        height: 20,
-        backgroundColor: '#FFF',
-        borderRadius: 50,
-        filter: 'blur(20px)',
-    },
-    footer: {
-        paddingBottom: 40,
-        alignItems: 'center',
-    },
-    footerText: {
-        color: 'rgba(255,255,255,0.4)',
-        fontSize: 14,
-        textAlign: 'center',
-        paddingHorizontal: 40,
-    },
+  container: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  header: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 100,
+  },
+  backButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  badgeContainer: {
+    position: 'absolute',
+    bottom: 50,
+    alignSelf: 'center',
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: 30,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    zIndex: 70,
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '800',
+    marginLeft: 10,
+    letterSpacing: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  backButtonMinimal: {
+    marginTop: 20,
+    padding: 10,
+  },
+  imageContainer: {
+    flex: 1,
+    width: width,
+    height: height,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  image: {
+    width: width,
+    height: height,
+  },
+  loadingContainer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 200,
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: 1,
+  },
+  errorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 210,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  errorText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  thumbnailContainer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    right: 20,
+    height: 70,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    zIndex: 80,
+  },
+  thumbnailContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    gap: 12,
+  },
+  thumbnailItem: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  activeThumbnail: {
+    transform: [{ scale: 1.1 }],
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.8,
+  },
 });

@@ -11,6 +11,7 @@ import { listingService } from '../services/listingService';
 import { storageService } from '../services/storageService';
 import { auth } from '../core/config/firebase';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 
@@ -27,7 +28,7 @@ export const PostJobScreen = ({ navigation }: any) => {
 
     // Form State
     const [jobTitle, setJobTitle] = useState('');
-    const [companyName, setCompanyName] = useState('');
+    const [companyName, setCompanyName] = useState(auth.currentUser?.displayName || 'Leo');
     const [companyLogo, setCompanyLogo] = useState<string | null>(null);
     const [jobType, setJobType] = useState('Full Time');
     const [salaryMin, setSalaryMin] = useState('');
@@ -42,6 +43,10 @@ export const PostJobScreen = ({ navigation }: any) => {
     const [phone, setPhone] = useState('');
     const [enableChat, setEnableChat] = useState(true);
 
+    const triggerHaptic = (style = Haptics.ImpactFeedbackStyle.Light) => {
+        try { Haptics.impactAsync(style); } catch (e) { }
+    };
+
     const pickLogo = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -51,35 +56,63 @@ export const PostJobScreen = ({ navigation }: any) => {
         });
 
         if (!result.canceled) {
+            triggerHaptic();
             setCompanyLogo(result.assets[0].uri);
         }
     };
 
     const addSkill = () => {
         if (newSkill.trim() && !skills.includes(newSkill.trim())) {
+            triggerHaptic();
             setSkills([...skills, newSkill.trim()]);
             setNewSkill('');
         }
     };
 
     const removeSkill = (skillToRemove: string) => {
+        triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
         setSkills(skills.filter(s => s !== skillToRemove));
+    };
+
+    const handlePreview = () => {
+        triggerHaptic();
+        const previewItem = {
+            title: jobTitle || 'Job Title Preview',
+            description: description || 'No description provided.',
+            price: salaryMin && salaryMax ? `$${salaryMin} - $${salaryMax}` : 'Negotiable',
+            category: 'Jobs',
+            images: companyLogo ? [companyLogo] : [],
+            sellerId: auth.currentUser?.uid || 'preview',
+            sellerName: companyName || 'Company Name',
+            location: location || 'Location Preview',
+            rating: 5,
+            type: 'job',
+            jobType,
+            salaryRange: salaryMin && salaryMax ? `$${salaryMin} - $${salaryMax}` : 'Negotiable',
+            skills,
+            experienceLevel: experience,
+            companyName,
+            companyLogo,
+            workMode,
+        };
+        navigation.navigate('ProductDetails', { product: previewItem });
     };
 
     const handlePostJob = async () => {
         if (!jobTitle || !companyName || !description || !location) {
+            triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
             Alert.alert('Missing Details', 'Please fill in all required fields.');
             return;
         }
 
         setLoading(true);
+        triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
         try {
             const user = auth.currentUser;
             let logoUrl = '';
 
             if (companyLogo) {
-                // Upload single image helper or reuse multiple
-                const urls = await storageService.uploadMultipleImages([companyLogo], 'company_logos');
+                const urls = await storageService.uploadMultipleImages([companyLogo], 'jobs');
                 logoUrl = urls[0];
             }
 
@@ -88,13 +121,13 @@ export const PostJobScreen = ({ navigation }: any) => {
                 description,
                 price: salaryMin && salaryMax ? `$${salaryMin} - $${salaryMax}` : 'Negotiable',
                 category: 'Jobs',
-                images: logoUrl ? [logoUrl] : [], // Use company logo as main image
+                images: logoUrl ? [logoUrl] : [],
                 sellerId: user?.uid || 'anonymous',
-                sellerName: companyName, // Display Company Name as seller
+                sellerName: companyName,
                 rating: 0,
                 type: 'job',
                 location,
-                condition: 'New', // Default for jobs
+                condition: 'New',
                 jobType,
                 salaryRange: salaryMin && salaryMax ? `$${salaryMin} - $${salaryMax}` : 'Negotiable',
                 skills,
@@ -104,10 +137,14 @@ export const PostJobScreen = ({ navigation }: any) => {
                 workMode: workMode as any,
                 contactEmail: email,
                 contactPhone: phone,
-                showPhone: !!phone, // If phone is provided, show it
+                showPhone: !!phone,
                 enableChat,
+                status: 'active',
+                views: 0,
+                chatsCount: 0,
             });
 
+            try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch (e) { }
             setSuccess(true);
             setTimeout(() => {
                 setSuccess(false);
@@ -115,6 +152,7 @@ export const PostJobScreen = ({ navigation }: any) => {
             }, 2000);
 
         } catch (error) {
+            try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); } catch (e) { }
             Alert.alert('Error', 'Failed to post job.');
             console.error(error);
         } finally {
@@ -217,7 +255,10 @@ export const PostJobScreen = ({ navigation }: any) => {
                                     <TouchableOpacity
                                         key={type}
                                         style={[styles.chip, jobType === type && styles.activeChip]}
-                                        onPress={() => setJobType(type)}
+                                        onPress={() => {
+                                            triggerHaptic();
+                                            setJobType(type);
+                                        }}
                                     >
                                         <Typography style={[styles.chipText, jobType === type && styles.activeChipText]}>{type}</Typography>
                                     </TouchableOpacity>
@@ -303,7 +344,10 @@ export const PostJobScreen = ({ navigation }: any) => {
                                     <TouchableOpacity
                                         key={mode}
                                         style={[styles.segmentBtn, workMode === mode && styles.activeSegment]}
-                                        onPress={() => setWorkMode(mode)}
+                                        onPress={() => {
+                                            triggerHaptic();
+                                            setWorkMode(mode);
+                                        }}
                                     >
                                         <Typography style={[styles.segmentText, workMode === mode && styles.activeSegmentText]}>{mode}</Typography>
                                     </TouchableOpacity>
@@ -375,7 +419,7 @@ export const PostJobScreen = ({ navigation }: any) => {
 
             {/* Bottom Actions */}
             <View style={styles.footer}>
-                <TouchableOpacity style={styles.previewBtn}>
+                <TouchableOpacity onPress={handlePreview} style={styles.previewBtn}>
                     <Typography style={{ color: '#002f34', fontWeight: '700' }}>Preview</Typography>
                 </TouchableOpacity>
                 <TouchableOpacity

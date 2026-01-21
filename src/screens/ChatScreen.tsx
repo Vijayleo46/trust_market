@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions, TextInput } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions, TextInput, ActivityIndicator } from 'react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { useTheme } from '../theme/ThemeContext';
 import { Typography } from '../components/common/Typography';
@@ -7,6 +7,7 @@ import { Search, MoreHorizontal, MessageSquare, Bell } from 'lucide-react-native
 import { chatService, ChatThread } from '../services/chatService';
 import { userService } from '../services/userService';
 import { auth } from '../core/config/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const { width } = Dimensions.get('window');
 
@@ -34,8 +35,9 @@ const ChatListItem = ({ item, index, navigation }: { item: ChatThread, index: nu
                     chatId: item.id,
                     otherName: title,
                     otherAvatar: avatar,
-                    listingTitle: item.listingTitle,
-                    listingId: item.listingId,
+                    productTitle: item.listingTitle,
+                    productImage: item.participantDetails?.[otherUserId || '']?.avatar || '', // Fallback or fetch from listing
+                    productId: item.listingId,
                 })}
                 style={styles.chatCard}
             >
@@ -78,38 +80,41 @@ export const ChatScreen = ({ navigation }: any) => {
     const [activeTab, setActiveTab] = useState<'products' | 'jobs'>('products');
 
     useEffect(() => {
-        console.log('=== CHAT SCREEN MOUNTED ===');
-        const user = auth.currentUser;
+        console.log('=== CHAT SCREEN INITIALIZING ===');
 
-        if (!user) {
-            console.log('❌ No user logged in');
-            setLoading(false);
-            return;
-        }
+        const initializeSubscription = (user: any) => {
+            if (!user) {
+                console.log('❌ No user logged in for chat subscription');
+                setChats([]);
+                setLoading(false);
+                return;
+            }
 
-        console.log('✅ User logged in:', user.uid, user.displayName);
-        console.log('Subscribing to chats...');
+            console.log('✅ User ready for chat subscription:', user.uid);
+            setLoading(true);
 
-        const unsubscribe = chatService.subscribeToUserChats(user.uid, (data) => {
-            console.log('=== CHATS RECEIVED ===');
-            console.log('Total chats:', data.length);
-            data.forEach((chat, index) => {
-                console.log(`Chat ${index + 1}:`, {
-                    id: chat.id,
-                    participants: chat.participants,
-                    lastMessage: chat.lastMessage,
-                    jobRelated: chat.jobRelated,
-                    listingType: chat.listingType,
-                    listingTitle: chat.listingTitle
-                });
+            return chatService.subscribeToUserChats(user.uid, (data) => {
+                console.log('=== CHATS RECEIVED ===');
+                console.log('Total chats:', data.length);
+                setChats(data);
+                setLoading(false);
             });
-            setChats(data);
-            setLoading(false);
+        };
+
+        // First attempt with current user
+        let currentUnsubscribe = initializeSubscription(auth.currentUser);
+
+        // Also listen for auth state changes to catch delayed initialization
+        const authUnsubscribe = onAuthStateChanged(auth, (user) => {
+            console.log('Auth state changed in ChatScreen:', user?.uid);
+            if (currentUnsubscribe) currentUnsubscribe();
+            currentUnsubscribe = initializeSubscription(user);
         });
 
         return () => {
-            console.log('Unsubscribing from chats');
-            unsubscribe();
+            console.log('Cleaning up chat subscriptions');
+            if (currentUnsubscribe) currentUnsubscribe();
+            authUnsubscribe();
         };
     }, []);
 
@@ -189,27 +194,34 @@ export const ChatScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
             </View>
 
-            <FlatList
-                data={filteredChats}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={{ paddingBottom: 100 }}
-                ListEmptyComponent={
-                    <Animated.View entering={FadeInUp.delay(300)} style={styles.emptyContainer}>
-                        <View style={styles.emptyIconCircle}>
-                            <MessageSquare size={40} {...{ color: "#9CA3AF" } as any} />
-                        </View>
-                        <Typography variant="h3" color="#1F2937" style={{ marginTop: 20 }}>
-                            No {activeTab} chats yet
-                        </Typography>
-                        <Typography variant="bodyMedium" color="#9CA3AF" style={{ textAlign: 'center', marginTop: 8 }}>
-                            Your conversations about {activeTab} will appear here.
-                        </Typography>
-                    </Animated.View>
-                }
-                renderItem={({ item, index }) => (
-                    <ChatListItem item={item} index={index} navigation={navigation} />
-                )}
-            />
+            {loading ? (
+                <View style={[styles.emptyContainer, { marginTop: 100 }]}>
+                    <ActivityIndicator size="large" color="#002f34" />
+                    <Typography style={{ marginTop: 16, color: '#6B7280' }}>Loading chats...</Typography>
+                </View>
+            ) : (
+                <FlatList
+                    data={filteredChats}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                    ListEmptyComponent={
+                        <Animated.View entering={FadeInUp.delay(300)} style={styles.emptyContainer}>
+                            <View style={styles.emptyIconCircle}>
+                                <MessageSquare size={40} {...{ color: "#9CA3AF" } as any} />
+                            </View>
+                            <Typography variant="h3" color="#1F2937" style={{ marginTop: 20 }}>
+                                No {activeTab} chats yet
+                            </Typography>
+                            <Typography variant="bodyMedium" color="#9CA3AF" style={{ textAlign: 'center', marginTop: 8 }}>
+                                Your conversations about {activeTab} will appear here.
+                            </Typography>
+                        </Animated.View>
+                    }
+                    renderItem={({ item, index }) => (
+                        <ChatListItem item={item} index={index} navigation={navigation} />
+                    )}
+                />
+            )}
         </View>
     );
 };
