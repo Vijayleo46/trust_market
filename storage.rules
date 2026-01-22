@@ -10,7 +10,7 @@ service firebase.storage {
     // Listings images
     match /listings/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && request.resource.size < 5 * 1024 * 1024; // 5MB max
+      allow write: if isAuthenticated(); // Removed size restriction for debug
     }
 
     // User avatars

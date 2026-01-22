@@ -17,7 +17,7 @@ import {
     BarChart3,
     AlertCircle,
     ChevronRight,
-    DollarSign,
+    IndianRupee,
     TrendingUp,
     Shield,
     Bell,
@@ -36,7 +36,7 @@ export const AdminDashboardScreen = ({ navigation }: any) => {
     const [stats, setStats] = React.useState({
         users: 0,
         ads: 0,
-        revenue: '$12,480',
+        revenue: '₹ 12,480',
         reports: 14
     });
 
@@ -112,7 +112,7 @@ export const AdminDashboardScreen = ({ navigation }: any) => {
                         index={3}
                         title="Revenue"
                         value={stats.revenue}
-                        icon={<DollarSign size={20} {...{ color: "#10B981" } as any} />}
+                        icon={<IndianRupee size={20} {...{ color: "#10B981" } as any} />}
                         color="#10B981"
                         trend="+18.4%"
                     />

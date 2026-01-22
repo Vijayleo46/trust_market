@@ -16,8 +16,9 @@ const firebaseConfig = {
     projectId: "trust-market-platform",
     storageBucket: "trust-market-platform.firebasestorage.app",
     messagingSenderId: "516223323976",
-    appId: "1:516223323976:web:834ff2d8590b770d0b2d7d",
-    measurementId: "G-XPPC9C94C9"
+    // Using verified web appId for all platforms to ensure connection in Expo Go
+    appId: "1:516223323976:web:1c2391510b766fe90b2d7d",
+    measurementId: "G-87NMJ7TNCW"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -29,7 +30,7 @@ if (Platform.OS === 'web') {
     // Web uses browser's built-in persistence (localStorage by default)
     auth = getAuth(app);
 } else {
-    // React Native - Firebase JS SDK uses AsyncStorage automatically when available
+    // React Native - Firebase JS SDK v12+ handles persistence automatically
     auth = initializeAuth(app, {
         // AsyncStorage persistence is handled automatically by Firebase JS SDK
     });

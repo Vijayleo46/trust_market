@@ -9,30 +9,20 @@ export const storageService = {
      * @returns Download URL of the uploaded image
      */
     uploadImage: async (uri: string, path: string): Promise<string> => {
+        console.log(`📸 Starting upload: URI=${uri}, PATH=${path}`);
         try {
-            // Using XMLHttpRequest for better reliability in React Native instead of fetch for blobs
-            const blob: any = await new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                xhr.onload = function () {
-                    resolve(xhr.response);
-                };
-                xhr.onerror = function (e) {
-                    console.error('XMLHttpRequest failed:', e);
-                    reject(new TypeError("Network request failed"));
-                };
-                xhr.responseType = "blob";
-                xhr.open("GET", uri, true);
-                xhr.send(null);
-            });
+            // Using fetch for better compatibility in modern Expo/React Native
+            console.log('🔄 Converting URI to Blob...');
+            const response = await fetch(uri);
+            const blob = await response.blob();
 
+            console.log('📦 Blob created, size:', blob?.size, 'type:', blob?.type);
             const storageRef = ref(storage, path);
+            console.log('🚀 Sending bytes to Firebase Storage...');
             await uploadBytes(storageRef, blob);
+            console.log('✅ Upload complete for:', path);
 
-            // We're done with the blob, close it
-            if (blob.close) blob.close();
-
-            const downloadURL = await getDownloadURL(storageRef);
-            return downloadURL;
+            return await getDownloadURL(storageRef);
         } catch (error) {
             console.error("Error uploading image: ", error);
             throw error;
@@ -43,8 +33,14 @@ export const storageService = {
      * Uploads multiple images and returns their download URLs
      */
     uploadMultipleImages: async (uris: string[], folder: string): Promise<string[]> => {
+        console.log(`📂 Uploading ${uris.length} images to ${folder}`);
         const uploadPromises = uris.map((uri, index) => {
-            const extension = uri.split('.').pop() || 'jpg';
+            // Robust extension detection
+            let extension = 'jpg';
+            const parts = uri.split(/[#?]/)[0].split('.');
+            if (parts.length > 1) {
+                extension = parts.pop() || 'jpg';
+            }
             const filename = `${Date.now()}_${index}.${extension}`;
             return storageService.uploadImage(uri, `${folder}/${filename}`);
         });

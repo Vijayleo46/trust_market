@@ -27,6 +27,11 @@ export const MyListingsScreen = ({ navigation }: any) => {
 
     const fetchListings = async (uid?: string) => {
         const userId = uid || auth.currentUser?.uid;
+        if (!userId) {
+            setLoading(false);
+            setRefreshing(false);
+            return;
+        }
         try {
             const data = await listingService.getListingsByUser(userId);
 
@@ -82,10 +87,13 @@ export const MyListingsScreen = ({ navigation }: any) => {
                         console.log('=== DELETING LISTING ===');
                         console.log('Listing ID:', id);
                         try {
-                            await listingService.deleteListing(id);
-                            console.log('✅ Listing deleted from Firebase');
-                            Alert.alert('Success', 'Listing deleted successfully');
-                            fetchListings();
+                            const item = listings.find(l => l.id === id);
+                            if (item) {
+                                await listingService.deleteListing(id, item.type);
+                                console.log('✅ Listing deleted from Firebase');
+                                Alert.alert('Success', 'Listing deleted successfully');
+                                fetchListings();
+                            }
                         } catch (error: any) {
                             console.error('=== DELETE ERROR ===');
                             console.error('Error:', error);
@@ -97,18 +105,18 @@ export const MyListingsScreen = ({ navigation }: any) => {
         );
     };
 
-    const handleMarkSold = async (id: string) => {
+    const handleMarkSold = async (id: string, type: Listing['type']) => {
         try {
-            await listingService.updateListingStatus(id, 'sold');
+            await listingService.updateListingStatus(id, type, 'sold');
             fetchListings();
         } catch (error) {
             Alert.alert('Error', 'Failed to update status');
         }
     };
 
-    const handleBoost = async (id: string) => {
+    const handleBoost = async (id: string, type: Listing['type']) => {
         try {
-            await listingService.boostListing(id);
+            await listingService.boostListing(id, type);
             Alert.alert('Success', 'Listing boosted!');
             fetchListings();
         } catch (error) {
@@ -162,10 +170,10 @@ export const MyListingsScreen = ({ navigation }: any) => {
                 <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('PostItem', { listing: item })}>
                     <Edit size={18} color="#002f34" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => handleMarkSold(item.id!)}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => handleMarkSold(item.id!, item.type)}>
                     <CheckCircle size={18} color="#10B981" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => handleBoost(item.id!)}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => handleBoost(item.id!, item.type)}>
                     <TrendingUp size={18} color="#F59E0B" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(item.id!)}>
@@ -215,10 +223,10 @@ export const MyListingsScreen = ({ navigation }: any) => {
                 <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('PostJob', { listing: item })}>
                     <Edit size={18} color="#002f34" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => handleMarkSold(item.id!)}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => handleMarkSold(item.id!, item.type)}>
                     <X size={18} color="#EF4444" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => handleBoost(item.id!)}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => handleBoost(item.id!, item.type)}>
                     <TrendingUp size={18} color="#F59E0B" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(item.id!)}>

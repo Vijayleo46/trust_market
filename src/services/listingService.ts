@@ -54,41 +54,58 @@ export interface Listing {
 }
 
 export const listingService = {
+    // Helper to get collection name based on type
+    getCollectionName: (type: Listing['type']) => {
+        if (type === 'job') return 'jobs';
+        return 'products'; // services and products go to products for now or add 'services'
+    },
+
     // Create a new listing
     createListing: async (listing: Omit<Listing, 'id' | 'createdAt'>) => {
         try {
-            const docRef = await addDoc(collection(db, 'listings'), {
+            const collectionName = listingService.getCollectionName(listing.type);
+            const docRef = await addDoc(collection(db, collectionName), {
                 ...listing,
                 createdAt: serverTimestamp(),
             });
             return docRef.id;
         } catch (error) {
-            console.error("Error adding listing: ", error);
+            console.error(`Error adding ${listing.type}: `, error);
             throw error;
         }
     },
 
-    // Get featured listings
+    // Get featured listings (Combined from products and jobs)
     getFeaturedListings: async (listingLimit = 10) => {
         try {
-            const q = query(
-                collection(db, 'listings'),
-                orderBy('createdAt', 'desc'),
-                limit(listingLimit)
-            );
-            const querySnapshot = await getDocs(q);
-            return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing));
+            const productQuery = query(collection(db, 'products'), orderBy('createdAt', 'desc'), limit(listingLimit));
+            const jobQuery = query(collection(db, 'jobs'), orderBy('createdAt', 'desc'), limit(listingLimit));
+
+            const [productSnap, jobSnap] = await Promise.all([getDocs(productQuery), getDocs(jobQuery)]);
+
+            const products = productSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing));
+            const jobs = jobSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing));
+
+            // Merge and sort by createdAt
+            return [...products, ...jobs]
+                .sort((a, b) => {
+                    const timeA = a.createdAt?.toMillis() || 0;
+                    const timeB = b.createdAt?.toMillis() || 0;
+                    return timeB - timeA;
+                })
+                .slice(0, listingLimit);
         } catch (error) {
             console.error("Error fetching featured listings: ", error);
-            return []; // Return empty list on error for UX
+            return [];
         }
     },
 
     // Get listings by category
     getListingsByCategory: async (category: string) => {
         try {
+            const collectionName = category === 'Jobs' ? 'jobs' : 'products';
             const q = query(
-                collection(db, 'listings'),
+                collection(db, collectionName),
                 where('category', '==', category),
                 orderBy('createdAt', 'desc')
             );
@@ -100,13 +117,23 @@ export const listingService = {
         }
     },
 
-    // Get listing by ID
-    getListingById: async (id: string) => {
+    // Get listing by ID (Now needs to check both collections if type is unknown)
+    getListingById: async (id: string, type?: Listing['type']) => {
         try {
-            const docRef = doc(db, 'listings', id);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                return { id: docSnap.id, ...docSnap.data() } as Listing;
+            if (type) {
+                const docRef = doc(db, listingService.getCollectionName(type), id);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) return { id: docSnap.id, ...docSnap.data() } as Listing;
+            } else {
+                // Try products first
+                const pRef = doc(db, 'products', id);
+                const pSnap = await getDoc(pRef);
+                if (pSnap.exists()) return { id: pSnap.id, ...pSnap.data() } as Listing;
+
+                // Then jobs
+                const jRef = doc(db, 'jobs', id);
+                const jSnap = await getDoc(jRef);
+                if (jSnap.exists()) return { id: jSnap.id, ...jSnap.data() } as Listing;
             }
             return null;
         } catch (error) {
@@ -118,9 +145,14 @@ export const listingService = {
     // Search listings
     searchListings: async (searchQuery: string) => {
         try {
-            const q = query(collection(db, 'listings'), limit(50));
-            const querySnapshot = await getDocs(q);
-            const all = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing));
+            const productSnap = await getDocs(query(collection(db, 'products'), limit(50)));
+            const jobSnap = await getDocs(query(collection(db, 'jobs'), limit(50)));
+
+            const all = [
+                ...productSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing)),
+                ...jobSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing))
+            ];
+
             if (!searchQuery) return all;
             return all.filter(l => l.title.toLowerCase().includes(searchQuery.toLowerCase()));
         } catch (error) {
@@ -132,12 +164,15 @@ export const listingService = {
     // Get listings by user
     getListingsByUser: async (userId: string) => {
         try {
-            const q = query(
-                collection(db, 'listings'),
-                where('sellerId', '==', userId)
-            );
-            const querySnapshot = await getDocs(q);
-            return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing));
+            const pQuery = query(collection(db, 'products'), where('sellerId', '==', userId));
+            const jQuery = query(collection(db, 'jobs'), where('sellerId', '==', userId));
+
+            const [pSnap, jSnap] = await Promise.all([getDocs(pQuery), getDocs(jQuery)]);
+
+            return [
+                ...pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing)),
+                ...jSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing))
+            ];
         } catch (error) {
             console.error("Error fetching user listings: ", error);
             throw error;
@@ -147,8 +182,11 @@ export const listingService = {
     // Get total listing count
     getListingCount: async () => {
         try {
-            const querySnapshot = await getDocs(collection(db, 'listings'));
-            return querySnapshot.size;
+            const [pSnap, jSnap] = await Promise.all([
+                getDocs(collection(db, 'products')),
+                getDocs(collection(db, 'jobs'))
+            ]);
+            return pSnap.size + jSnap.size;
         } catch (error) {
             console.error("Error getting listing count: ", error);
             return 0;
@@ -158,35 +196,35 @@ export const listingService = {
     // Get trending listings (high rating)
     getTrendingListings: async (listingLimit = 4) => {
         try {
-            const q = query(
-                collection(db, 'listings'),
-                orderBy('rating', 'desc'),
-                limit(listingLimit)
-            );
-            const querySnapshot = await getDocs(q);
-            return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing));
+            const pQuery = query(collection(db, 'products'), orderBy('rating', 'desc'), limit(listingLimit));
+            const jQuery = query(collection(db, 'jobs'), orderBy('rating', 'desc'), limit(listingLimit));
+
+            const [pSnap, jSnap] = await Promise.all([getDocs(pQuery), getDocs(jQuery)]);
+
+            return [
+                ...pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing)),
+                ...jSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing))
+            ].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, listingLimit);
         } catch (error) {
             console.error("Error fetching trending listings: ", error);
-            // Fallback to featured/latest if rating index is missing or empty
             return listingService.getFeaturedListings(listingLimit);
         }
     },
 
-    // Get similar listings by category (excluding current item)
+    // Get similar listings by category
     getSimilarListings: async (category: string, currentId?: string, listingLimit = 4) => {
         try {
+            const collectionName = category === 'Jobs' ? 'jobs' : 'products';
             const q = query(
-                collection(db, 'listings'),
+                collection(db, collectionName),
                 where('category', '==', category),
-                limit(listingLimit + 1) // Fetch one extra to handle exclusion
+                limit(listingLimit + 1)
             );
             const querySnapshot = await getDocs(q);
-            const listings = querySnapshot.docs
+            return querySnapshot.docs
                 .map(doc => ({ id: doc.id, ...doc.data() } as Listing))
                 .filter(item => item.id !== currentId)
                 .slice(0, listingLimit);
-
-            return listings;
         } catch (error) {
             console.error("Error fetching similar listings: ", error);
             return [];
@@ -205,7 +243,7 @@ export const listingService = {
                 {
                     title: 'Ultimate Gaming Build',
                     description: 'Full custom gaming setup. RTX 4090, i9-14900K, 64GB DDR5. Perfect for content creation and 4K gaming.',
-                    price: '$3500',
+                    price: '₹ 3500',
                     category: 'Electronics',
                     images: [
                         'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&q=80&w=1000',
@@ -251,7 +289,7 @@ export const listingService = {
                 {
                     title: 'UX/UI Designer',
                     description: 'We need a creative designer for our new startup. Remote friendly.',
-                    price: '$80k/yr',
+                    price: '₹ 80k/yr',
                     category: 'Jobs',
                     images: ['https://images.unsplash.com/photo-1586717791821-3f44a5638d28?auto=format&fit=crop&q=80&w=1000'],
                     sellerId,
@@ -285,7 +323,7 @@ export const listingService = {
                 {
                     title: 'Professional Home Cleaning',
                     description: 'Top rated cleaning service in Seattle. We use eco-friendly products.',
-                    price: '$50/hr',
+                    price: '₹ 50/hr',
                     category: 'Services',
                     images: ['https://images.unsplash.com/photo-1581579186913-45ac3e6e3dd2?auto=format&fit=crop&q=80&w=1000'],
                     sellerId,
@@ -326,9 +364,9 @@ export const listingService = {
     },
 
     // Delete a listing
-    deleteListing: async (id: string) => {
+    deleteListing: async (id: string, type: Listing['type']) => {
         try {
-            await deleteDoc(doc(db, 'listings', id));
+            await deleteDoc(doc(db, listingService.getCollectionName(type), id));
         } catch (error) {
             console.error("Error deleting listing: ", error);
             throw error;
@@ -336,9 +374,9 @@ export const listingService = {
     },
 
     // Update listing status
-    updateListingStatus: async (id: string, status: string) => {
+    updateListingStatus: async (id: string, type: Listing['type'], status: string) => {
         try {
-            await updateDoc(doc(db, 'listings', id), { status });
+            await updateDoc(doc(db, listingService.getCollectionName(type), id), { status });
         } catch (error) {
             console.error("Error updating listing status: ", error);
             throw error;
@@ -346,9 +384,9 @@ export const listingService = {
     },
 
     // Boost a listing
-    boostListing: async (id: string) => {
+    boostListing: async (id: string, type: Listing['type']) => {
         try {
-            await updateDoc(doc(db, 'listings', id), { isBoosted: true });
+            await updateDoc(doc(db, listingService.getCollectionName(type), id), { isBoosted: true });
         } catch (error) {
             console.error("Error boosting listing: ", error);
             throw error;
@@ -431,12 +469,11 @@ export const listingService = {
                 const listingId = wishlistDoc.data().listingId;
                 console.log('Fetching listing:', listingId);
 
-                const listingRef = doc(db, 'listings', listingId);
-                const listingSnap = await getDoc(listingRef);
+                const listing = await listingService.getListingById(listingId);
 
-                if (listingSnap.exists()) {
+                if (listing) {
                     console.log('✅ Listing found:', listingId);
-                    return { id: listingSnap.id, ...listingSnap.data() } as Listing;
+                    return listing;
                 } else {
                     console.log('❌ Listing not found:', listingId);
                 }

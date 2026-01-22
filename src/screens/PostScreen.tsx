@@ -107,7 +107,7 @@ export const PostScreen = ({ route, navigation }: any) => {
 
         try {
             const user = auth.currentUser;
-            console.log('Current user:', user?.uid, user?.displayName, user?.email);
+            console.log('👤 Auth state check:', user ? `Logged in as ${user.uid}` : 'NOT LOGGED IN');
 
             if (!user) {
                 console.error('No user logged in!');
@@ -126,6 +126,10 @@ export const PostScreen = ({ route, navigation }: any) => {
             const imageUrls = await storageService.uploadMultipleImages(images, 'listings');
             console.log('✅ Images uploaded successfully:', imageUrls);
 
+            let type: 'product' | 'job' | 'service' = 'product';
+            if (category === 'Jobs') type = 'job';
+            else if (category === 'Services') type = 'service';
+
             const listingData = {
                 title,
                 description,
@@ -139,7 +143,7 @@ export const PostScreen = ({ route, navigation }: any) => {
                 sellerId: user.uid,
                 sellerName: user.displayName || user.email || 'Leo',
                 rating: 0,
-                type: 'product' as const,
+                type,
                 location: location,
             };
 
@@ -209,7 +213,10 @@ export const PostScreen = ({ route, navigation }: any) => {
                 errorMessage = error.message;
             }
 
-            Alert.alert('❌ Error', errorMessage + '\n\nCheck console for details.');
+            Alert.alert(
+                '❌ Error',
+                `${errorMessage}\n\nCode: ${error.code}\nMessage: ${error.message}`
+            );
         } finally {
             setLoading(false);
             console.log('Loading set to false');
@@ -300,7 +307,7 @@ export const PostScreen = ({ route, navigation }: any) => {
                             <View style={[styles.inputWrapper, { flex: 1, marginRight: 12 }]}>
                                 <Typography variant="label" style={styles.label}>PRICE</Typography>
                                 <View style={styles.priceContainer}>
-                                    <Typography style={{ marginRight: 4, fontWeight: '700' }}>$</Typography>
+                                    <Typography style={{ marginRight: 4, fontWeight: '700' }}>₹</Typography>
                                     <TextInput
                                         style={[styles.input, { borderWidth: 0, height: 40, paddingHorizontal: 0 }]}
                                         placeholder="0.00"

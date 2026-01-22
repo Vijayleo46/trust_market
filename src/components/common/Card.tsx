@@ -20,11 +20,7 @@ export const Card: React.FC<CardProps> = ({
             case 'elevated':
                 return {
                     backgroundColor: theme.card,
-                    shadowColor: theme.shadow,
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 8,
-                    elevation: 4,
+                    ...theme.shadow,
                 };
             case 'flat':
                 return {

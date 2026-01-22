@@ -4,7 +4,7 @@ import Animated, { FadeInUp, SlideInDown, ZoomIn } from 'react-native-reanimated
 import { useTheme } from '../theme/ThemeContext';
 import { Typography } from '../components/common/Typography';
 import {
-    ArrowLeft, Check, Upload, Briefcase, MapPin, DollarSign,
+    ArrowLeft, Check, Upload, Briefcase, MapPin, IndianRupee,
     Plus, X, Calendar, Mail, Phone, MessageCircle, Globe
 } from 'lucide-react-native';
 import { listingService } from '../services/listingService';
@@ -79,7 +79,7 @@ export const PostJobScreen = ({ navigation }: any) => {
         const previewItem = {
             title: jobTitle || 'Job Title Preview',
             description: description || 'No description provided.',
-            price: salaryMin && salaryMax ? `$${salaryMin} - $${salaryMax}` : 'Negotiable',
+            price: salaryMin && salaryMax ? `₹${salaryMin} - ₹${salaryMax}` : 'Negotiable',
             category: 'Jobs',
             images: companyLogo ? [companyLogo] : [],
             sellerId: auth.currentUser?.uid || 'preview',
@@ -88,7 +88,7 @@ export const PostJobScreen = ({ navigation }: any) => {
             rating: 5,
             type: 'job',
             jobType,
-            salaryRange: salaryMin && salaryMax ? `$${salaryMin} - $${salaryMax}` : 'Negotiable',
+            salaryRange: salaryMin && salaryMax ? `₹${salaryMin} - ₹${salaryMax}` : 'Negotiable',
             skills,
             experienceLevel: experience,
             companyName,
@@ -119,7 +119,7 @@ export const PostJobScreen = ({ navigation }: any) => {
             await listingService.createListing({
                 title: jobTitle,
                 description,
-                price: salaryMin && salaryMax ? `$${salaryMin} - $${salaryMax}` : 'Negotiable',
+                price: salaryMin && salaryMax ? `₹${salaryMin} - ₹${salaryMax}` : 'Negotiable',
                 category: 'Jobs',
                 images: logoUrl ? [logoUrl] : [],
                 sellerId: user?.uid || 'anonymous',
@@ -129,7 +129,7 @@ export const PostJobScreen = ({ navigation }: any) => {
                 location,
                 condition: 'New',
                 jobType,
-                salaryRange: salaryMin && salaryMax ? `$${salaryMin} - $${salaryMax}` : 'Negotiable',
+                salaryRange: salaryMin && salaryMax ? `₹${salaryMin} - ₹${salaryMax}` : 'Negotiable',
                 skills,
                 experienceLevel: experience,
                 companyName,
@@ -270,7 +270,7 @@ export const PostJobScreen = ({ navigation }: any) => {
                             <Typography variant="label" style={styles.label}>SALARY RANGE (YEARLY)</Typography>
                             <View style={styles.salaryRow}>
                                 <View style={styles.salaryInput}>
-                                    <DollarSign size={16} color="#6B7280" />
+                                    <IndianRupee size={16} color="#6B7280" />
                                     <TextInput
                                         style={{ flex: 1, marginLeft: 8 }}
                                         placeholder="Min"
@@ -281,7 +281,7 @@ export const PostJobScreen = ({ navigation }: any) => {
                                 </View>
                                 <Typography style={{ marginHorizontal: 8 }}>-</Typography>
                                 <View style={styles.salaryInput}>
-                                    <DollarSign size={16} color="#6B7280" />
+                                    <IndianRupee size={16} color="#6B7280" />
                                     <TextInput
                                         style={{ flex: 1, marginLeft: 8 }}
                                         placeholder="Max"
