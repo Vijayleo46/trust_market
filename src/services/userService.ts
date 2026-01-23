@@ -11,6 +11,7 @@ export interface UserProfile {
     location?: string;
     createdAt: any;
     updatedAt?: any;
+    coins?: number;
     kycStatus: 'pending' | 'verified' | 'unverified';
     settings?: {
         notifications: boolean;

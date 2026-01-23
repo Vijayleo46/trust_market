@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Dimensions, Alert } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useIsFocused } from '@react-navigation/native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { useTheme } from '../theme/ThemeContext';
@@ -30,6 +31,7 @@ export const ProfileScreen = ({ navigation }: any) => {
     const isFocused = useIsFocused();
     const user = auth.currentUser;
     const [userListingCount, setUserListingCount] = useState(0);
+    const [salesCount, setSalesCount] = useState(0);
     const [userProfile, setUserProfile] = useState<any>(null);
 
     useEffect(() => {
@@ -44,6 +46,9 @@ export const ProfileScreen = ({ navigation }: any) => {
                     ]);
 
                     setUserListingCount(listings.length);
+                    const soldCount = listings.filter(l => l.status === 'sold').length;
+                    setSalesCount(soldCount);
+
                     if (profile) {
                         setUserProfile(profile);
                         console.log('✅ Profile synced with backend');
@@ -63,6 +68,27 @@ export const ProfileScreen = ({ navigation }: any) => {
     const phone = userProfile?.phone || '';
     const location = userProfile?.location || '';
     const bio = userProfile?.bio || '';
+
+    const handleSyncCoins = async () => {
+        if (!user) return;
+        try {
+            const listings = await listingService.getListingsByUser(user.uid);
+            const totalCount = listings.length;
+            const soldCount = listings.filter(l => l.status === 'sold').length;
+
+            // 3 coins for Posting + 3 coins for Selling
+            const newCoins = (totalCount * 3) + (soldCount * 3);
+
+            await userService.updateProfile(user.uid, { coins: newCoins });
+            setUserProfile({ ...userProfile, coins: newCoins });
+            setSalesCount(soldCount);
+            setUserListingCount(totalCount);
+
+            Alert.alert('Success ✅', `Coins synced! You earned ${totalCount * 3} coins for Posting and ${soldCount * 3} coins for Sales. Total: ${newCoins}`);
+        } catch (error) {
+            Alert.alert('Error', 'Failed to sync coins.');
+        }
+    };
 
     const MenuItem = ({ icon, label, rightElement, onPress, index }: any) => (
         <Animated.View entering={FadeInRight.delay(500 + index * 100)}>
@@ -132,13 +158,44 @@ export const ProfileScreen = ({ navigation }: any) => {
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                        <Typography variant="h3">4.9</Typography>
-                        <Typography variant="bodySmall" color="#9CA3AF">Rating</Typography>
+                        <Typography variant="h3">{userProfile?.coins || 0}</Typography>
+                        <Typography variant="bodySmall" color="#F59E0B" style={{ fontWeight: '700' }}>Coins</Typography>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                        <Typography variant="h3">12</Typography>
+                        <Typography variant="h3">{salesCount}</Typography>
                         <Typography variant="bodySmall" color="#9CA3AF">Sales</Typography>
+                    </View>
+                </Animated.View>
+
+                {/* Vendo Coins Reward Card */}
+                <Animated.View entering={FadeInUp.delay(400)} style={styles.coinsCard}>
+                    <LinearGradient
+                        colors={['#002f34', '#004d56']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.coinsGradient}
+                    >
+                        <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                <Star size={18} color="#FFD700" fill="#FFD700" />
+                                <Typography style={{ color: '#FFF', fontSize: 16, fontWeight: '800', marginLeft: 8 }}>Vendo Coins</Typography>
+                            </View>
+                            <Typography style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Use coins to get exclusive discounts!</Typography>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                            <Typography style={{ color: '#FFD700', fontSize: 24, fontWeight: '900' }}>{userProfile?.coins || 0}</Typography>
+                            <Typography style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>≈ ₹{Math.floor((userProfile?.coins || 0) * (50 / 150))}</Typography>
+                            <TouchableOpacity
+                                onPress={handleSyncCoins}
+                                style={{ marginTop: 8, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}
+                            >
+                                <Typography style={{ color: '#FFF', fontSize: 10, fontWeight: '700' }}>🔄 SYNC COINS</Typography>
+                            </TouchableOpacity>
+                        </View>
+                    </LinearGradient>
+                    <View style={styles.coinsTip}>
+                        <Typography style={{ color: '#002f34', fontSize: 11, fontWeight: '600' }}>💡 TIP: 150 Coins = ₹50 discount on any product you buy!</Typography>
                     </View>
                 </Animated.View>
 
@@ -370,6 +427,31 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFF',
         borderWidth: 1,
         borderColor: '#FEE2E2',
+    },
+    coinsCard: {
+        marginHorizontal: 24,
+        borderRadius: 24,
+        overflow: 'hidden',
+        backgroundColor: '#FFF',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        marginBottom: 30,
+    },
+    coinsGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 20,
+        justifyContent: 'space-between',
+    },
+    coinsTip: {
+        backgroundColor: '#F0FDFA',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.05)',
     },
 });
 

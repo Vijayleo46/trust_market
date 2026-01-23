@@ -37,6 +37,9 @@ export interface ChatThread {
     listingId?: string;
     listingTitle?: string;
     jobRelated?: boolean;
+    unreadCount?: number;
+    isImportant?: boolean;
+    isEliteBuyer?: boolean;
 }
 
 export const chatService = {

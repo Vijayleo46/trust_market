@@ -22,6 +22,7 @@ import { auth, db } from '../core/config/firebase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { collection, getDocs } from 'firebase/firestore';
+import { userService } from '../services/userService';
 
 const { width, height } = Dimensions.get('window');
 const IMG_HEIGHT = height * 0.45;
@@ -35,6 +36,7 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
     const [wishlistLoading, setWishlistLoading] = useState(false);
     const [loading, setLoading] = useState(!product);
     const [chatLoading, setChatLoading] = useState(false);
+    const [userCoins, setUserCoins] = useState(0);
 
     // Fetch fresh data from backend
     useEffect(() => {
@@ -70,6 +72,16 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
 
     useEffect(() => {
         checkWishlist();
+
+        // Fetch User Coins
+        const fetchCoins = async () => {
+            const user = auth.currentUser;
+            if (user) {
+                const profile = await userService.getProfile(user.uid);
+                if (profile) setUserCoins(profile.coins || 0);
+            }
+        };
+        fetchCoins();
     }, [checkWishlist]);
 
     const toggleWishlist = async () => {
@@ -281,6 +293,35 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
 
                     <Typography style={styles.titleText}>{item.title}</Typography>
 
+                    {/* Redeem Coins Offer */}
+                    {userCoins > 0 && (
+                        <View style={styles.discountCard}>
+                            <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                                    <Star size={14} color="#F59E0B" fill="#F59E0B" />
+                                    <Typography style={styles.discountTitle}>REDEEM COINS</Typography>
+                                </View>
+                                <Typography style={styles.discountDesc}>
+                                    {userCoins >= 150
+                                        ? "You can use 150 coins to get ₹50 OFF!"
+                                        : `You have ${userCoins} coins. Earn more to get ₹50 OFF!`}
+                                </Typography>
+                            </View>
+                            <TouchableOpacity
+                                style={[styles.redeemBtn, userCoins < 150 && { opacity: 0.5 }]}
+                                disabled={userCoins < 150}
+                                onPress={() => {
+                                    Alert.alert("Redeem Coins", "This will deduct 150 coins from your balance for a ₹50 discount. Confirm with seller in chat!", [
+                                        { text: "Cancel", style: "cancel" },
+                                        { text: "Confirm", onPress: () => Alert.alert("Success", "Offer sent to seller!") }
+                                    ]);
+                                }}
+                            >
+                                <Typography style={styles.redeemBtnText}>Redeem</Typography>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
                     <View style={styles.metaRow}>
                         <View style={styles.metaItem}>
                             <MapPin size={14} color="#555" />
@@ -349,6 +390,17 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
 
                 {/* 5. Seller Profile (Enhanced) */}
                 <View style={[styles.section, { borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingTop: 16 }]}>
+
+                    {/* Earn Coins Reminder */}
+                    <View style={styles.earnCoinsBanner}>
+                        <View style={styles.earnCoinsIcon}>
+                            <Star size={14} color="#F59E0B" fill="#F59E0B" />
+                        </View>
+                        <Typography style={styles.earnCoinsText}>
+                            Earn <Typography style={{ fontWeight: '700' }}>3 Vendo Coins</Typography> for every item you post for sale!
+                        </Typography>
+                    </View>
+
                     <Typography style={styles.sectionLabel}>Sold By</Typography>
                     <TouchableOpacity style={styles.sellerRow}>
                         {item.sellerAvatar ? (
@@ -698,5 +750,63 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         marginLeft: 12,
+    },
+    earnCoinsBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF7ED',
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#FFEDD5',
+    },
+    earnCoinsIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: '#FEF3C7',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 10,
+    },
+    earnCoinsText: {
+        fontSize: 13,
+        color: '#92400E',
+        flex: 1,
+    },
+    discountCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0FDFA',
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#CCFBF1',
+    },
+    discountTitle: {
+        fontSize: 10,
+        fontWeight: '900',
+        color: '#0F766E',
+        marginLeft: 6,
+        letterSpacing: 0.5,
+    },
+    discountDesc: {
+        fontSize: 12,
+        color: '#134E48',
+        fontWeight: '500',
+    },
+    redeemBtn: {
+        backgroundColor: '#0F766E',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        marginLeft: 12,
+    },
+    redeemBtnText: {
+        color: '#FFF',
+        fontSize: 12,
+        fontWeight: '700',
     },
 });

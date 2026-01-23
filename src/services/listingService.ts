@@ -68,6 +68,17 @@ export const listingService = {
                 ...listing,
                 createdAt: serverTimestamp(),
             });
+            // Award 3 coins for posting
+            try {
+                const userRef = doc(db, 'users', data.sellerId);
+                const userSnap = await getDoc(userRef);
+                const currentCoins = userSnap.exists() ? (userSnap.data()?.coins || 0) : 0;
+                await updateDoc(userRef, { coins: currentCoins + 3 });
+                console.log('✅ Awarded 3 coins for new listing');
+            } catch (e) {
+                console.error('Error awarding coins:', e);
+            }
+
             return docRef.id;
         } catch (error) {
             console.error(`Error adding ${listing.type}: `, error);
@@ -387,7 +398,26 @@ export const listingService = {
     // Update listing status
     updateListingStatus: async (id: string, type: Listing['type'], status: string) => {
         try {
-            await updateDoc(doc(db, listingService.getCollectionName(type), id), { status });
+            const collectionName = listingService.getCollectionName(type);
+            const listingRef = doc(db, collectionName, id);
+
+            // Get listing to find sellerId if status is 'sold'
+            if (status === 'sold') {
+                const listingSnap = await getDoc(listingRef);
+                if (listingSnap.exists()) {
+                    const data = listingSnap.data() as Listing;
+                    if (data.sellerId && data.status !== 'sold') {
+                        // Award 3 coins to seller
+                        const userRef = doc(db, 'users', data.sellerId);
+                        const userSnap = await getDoc(userRef);
+                        const currentCoins = userSnap.exists() ? (userSnap.data()?.coins || 0) : 0;
+                        await updateDoc(userRef, { coins: currentCoins + 3 });
+                        console.log(`✅ Awarded 3 coins to seller ${data.sellerId}`);
+                    }
+                }
+            }
+
+            await updateDoc(listingRef, { status });
         } catch (error) {
             console.error("Error updating listing status: ", error);
             throw error;

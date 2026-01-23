@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions, TextInput, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions, TextInput, ActivityIndicator, ScrollView } from 'react-native';
 import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
 import { useTheme } from '../theme/ThemeContext';
 import { Typography } from '../components/common/Typography';
-import { Search, MoreHorizontal, MessageSquare, Bell } from 'lucide-react-native';
+import { Search, MoreHorizontal, MessageSquare, Bell, Heart, Shield, Star, CheckCircle } from 'lucide-react-native';
 import { chatService, ChatThread } from '../services/chatService';
 import { userService } from '../services/userService';
 import { auth } from '../core/config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 const { width } = Dimensions.get('window');
+
+const CHAT_FILTERS = [
+    { id: 'all', label: 'All', icon: MessageSquare },
+    { id: 'unread', label: 'Unread', icon: Bell },
+    { id: 'important', label: 'Important', icon: Heart },
+    { id: 'elite', label: 'Elite Buyer', icon: Shield },
+];
 
 const ChatListItem = ({ item, index, navigation }: { item: ChatThread, index: number, navigation: any }) => {
     const [otherProfile, setOtherProfile] = useState<any>(null);
@@ -60,12 +67,21 @@ const ChatListItem = ({ item, index, navigation }: { item: ChatThread, index: nu
                             <Typography variant="bodySmall" style={{ fontSize: 12, color: '#8E8E93' }}>
                                 {time}
                             </Typography>
+                            {(item.unreadCount || 0) > 0 && <View style={styles.unreadDot} />}
                         </View>
                     </View>
 
-                    <Typography variant="bodySmall" color="#8E8E93" numberOfLines={1} style={{ marginTop: 2, fontSize: 14 }}>
-                        {item.lastMessage || "Tap to start chatting"}
-                    </Typography>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, justifyContent: 'space-between' }}>
+                        <Typography variant="bodySmall" color="#8E8E93" numberOfLines={1} style={{ flex: 1, fontSize: 14 }}>
+                            {item.lastMessage || "Tap to start chatting"}
+                        </Typography>
+                        {item.isEliteBuyer && (
+                            <View style={styles.eliteBadge}>
+                                <Shield size={10} color="#FFD700" fill="#FFD700" />
+                                <Typography style={styles.eliteText}>ELITE</Typography>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </TouchableOpacity>
         </Animated.View>
@@ -78,6 +94,7 @@ export const ChatScreen = ({ navigation }: any) => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<'products' | 'jobs'>('products');
+    const [activeFilter, setActiveFilter] = useState('all');
 
     useEffect(() => {
         console.log('=== CHAT SCREEN INITIALIZING ===');
@@ -133,10 +150,18 @@ export const ChatScreen = ({ navigation }: any) => {
     const currentChats = activeTab === 'products' ? productChats : jobChats;
 
     const filteredChats = currentChats.filter(chat => {
+        // Search Filter
         const otherUserId = chat.participants.find(id => id !== auth.currentUser?.uid);
         const otherUser = chat.participantDetails?.[otherUserId || ''];
-        if (!otherUser) return true; // Show it anyway if we can't find details
-        return otherUser.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = otherUser ? otherUser.name.toLowerCase().includes(searchQuery.toLowerCase()) : true;
+        if (!matchesSearch) return false;
+
+        // Quick Filters (Mock logic for now)
+        if (activeFilter === 'unread') return (chat.unreadCount || 0) > 0;
+        if (activeFilter === 'important') return chat.isImportant === true;
+        if (activeFilter === 'elite') return chat.isEliteBuyer === true;
+
+        return true;
     });
 
     return (
@@ -160,6 +185,52 @@ export const ChatScreen = ({ navigation }: any) => {
                         onChangeText={setSearchQuery}
                     />
                 </View>
+            </View>
+
+            {/* Quick Filters - Premium Chips */}
+            <View style={{ marginBottom: 16 }}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}
+                >
+                    {CHAT_FILTERS.map((filter, index) => {
+                        const isActive = activeFilter === filter.id;
+                        const Icon = filter.icon;
+                        return (
+                            <Animated.View
+                                key={filter.id}
+                                entering={FadeInRight.delay(index * 100)}
+                            >
+                                <TouchableOpacity
+                                    activeOpacity={0.8}
+                                    onPress={() => setActiveFilter(filter.id)}
+                                    style={[
+                                        styles.filterChip,
+                                        isActive && styles.activeFilterChip
+                                    ]}
+                                >
+                                    <Icon size={16} color={isActive ? '#FFFFFF' : '#64748B'} strokeWidth={2.5} />
+                                    <Typography
+                                        style={[
+                                            styles.filterChipText,
+                                            isActive && styles.activeFilterChipText
+                                        ]}
+                                    >
+                                        {filter.label}
+                                    </Typography>
+                                    {filter.id === 'unread' && (
+                                        <View style={styles.unreadCountBadge}>
+                                            <Typography style={{ color: '#FFF', fontSize: 10, fontWeight: '700' }}>
+                                                {chats.filter(c => (c.unreadCount || 0) > 0).length}
+                                            </Typography>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            </Animated.View>
+                        );
+                    })}
+                </ScrollView>
             </View>
 
             {/* Tab Selector - Chats/Groups Style */}
@@ -301,6 +372,59 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: '#002f34',
         fontWeight: '500',
+    },
+    filterChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 20,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1.5,
+        borderColor: '#F1F5F9',
+        gap: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
+    },
+    activeFilterChip: {
+        backgroundColor: '#002f34',
+        borderColor: '#002f34',
+    },
+    filterChipText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#64748B',
+    },
+    activeFilterChipText: {
+        color: '#FFFFFF',
+    },
+    unreadCountBadge: {
+        backgroundColor: '#EF4444',
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+    },
+    eliteBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#002f34',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        gap: 4,
+        marginLeft: 8,
+    },
+    eliteText: {
+        color: '#FFD700',
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 0.5,
     },
     chatCard: {
         flexDirection: 'row',

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, ScrollView, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, Image, Dimensions, StyleSheet } from 'react-native';
 import { Typography } from '../components/common/Typography';
-import { Search, MapPin, Bell, Heart, Home, MessageCircle, User, Plus, ChevronLeft, Car, Smartphone, Briefcase, Settings } from 'lucide-react-native';
+import { Search, MapPin, Bell, Heart, Home, MessageCircle, User, Plus, ChevronLeft, Car, Smartphone, Briefcase, Settings, Mic, Star } from 'lucide-react-native';
 import { listingService, Listing } from '../services/listingService';
 import { useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -163,8 +163,13 @@ export const HomeScreen = ({ navigation }: any) => {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <Typography style={{ fontSize: 28, fontWeight: '900', color: '#002f34', letterSpacing: -1 }}>Vendo</Typography>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <TouchableOpacity onPress={() => navigation.navigate('SearchTab')}>
-                <Search size={24} color="#0F172A" />
+
+              <TouchableOpacity onPress={() => navigation.navigate('Wishlist')}>
+                <Heart size={24} color="#0F172A" />
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7ED', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#FFEDD5' }}>
+                <Star size={16} color="#F59E0B" fill="#F59E0B" />
+                <Typography style={{ marginLeft: 4, fontSize: 13, fontWeight: '800', color: '#B45309' }}>{userProfile?.coins || 0}</Typography>
               </TouchableOpacity>
               <TouchableOpacity>
                 <Bell size={24} color="#0F172A" />
@@ -223,7 +228,7 @@ export const HomeScreen = ({ navigation }: any) => {
             }}
           >
             <Search size={22} color={OLX_TEAL} strokeWidth={2.5} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12, flex: 1 }}>
               <Typography style={{ color: '#94A3B8', fontSize: 16, fontWeight: '600', fontStyle: 'italic' }}>Find </Typography>
               <AnimatePresence exitBeforeEnter>
                 <MotiView
@@ -238,6 +243,9 @@ export const HomeScreen = ({ navigation }: any) => {
                   </Typography>
                 </MotiView>
               </AnimatePresence>
+            </View>
+            <View style={{ paddingLeft: 12 }}>
+              <Mic size={22} color={OLX_TEAL} strokeWidth={2.5} />
             </View>
           </TouchableOpacity>
         </View>
