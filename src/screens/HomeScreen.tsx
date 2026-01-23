@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, ScrollView, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, Image } from 'react-native';
+import { View, ScrollView, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, Image, Dimensions, StyleSheet } from 'react-native';
 import { Typography } from '../components/common/Typography';
 import { Search, MapPin, Bell, Heart, Home, MessageCircle, User, Plus, ChevronLeft, Car, Smartphone, Briefcase, Settings } from 'lucide-react-native';
 import { listingService, Listing } from '../services/listingService';
@@ -27,10 +27,14 @@ export const HomeScreen = ({ navigation }: any) => {
   const isFocused = useIsFocused();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const { width } = Dimensions.get('window');
+
   const [activeCategory, setActiveCategory] = useState('All');
   const [location, setLocation] = useState('Panampilly Nagar, Kochi');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -96,8 +100,29 @@ export const HomeScreen = ({ navigation }: any) => {
       );
     };
 
+    const productsWithAds = [...products];
+    // Inject Mock Ads
+    const ad1: any = {
+      id: 'ad-1',
+      title: 'Upgrade to Premium Insurance',
+      price: 'Ad',
+      location: 'Sponsored',
+      images: ['https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?auto=format&fit=crop&w=500&q=80'],
+      isAd: true
+    };
+    const ad2: any = {
+      id: 'ad-2',
+      title: 'Google Pixel 8 - Sale Live',
+      price: 'Ad',
+      location: 'Sponsored',
+      images: ['https://images.unsplash.com/photo-1598327105666-5b89351aff23?auto=format&fit=crop&w=500&q=80'],
+      isAd: true
+    };
+    if (productsWithAds.length > 2) productsWithAds.splice(2, 0, ad1);
+    if (productsWithAds.length > 6) productsWithAds.splice(6, 0, ad2);
+
     return {
-      products: filterByCat(products).slice(0, 10),
+      products: filterByCat(productsWithAds).slice(0, 10),
       jobs: filterByCat(jobs).slice(0, 10),
       all: filterByCat(listings)
     };
@@ -177,6 +202,46 @@ export const HomeScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
+        {/* Search Bar - Premium Glass Effect */}
+        <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('SearchTab')}
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 16,
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1.5,
+              borderColor: '#002f34',
+              shadowColor: '#002f34',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.1,
+              shadowRadius: 15,
+              elevation: 6
+            }}
+          >
+            <Search size={22} color={OLX_TEAL} strokeWidth={2.5} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12 }}>
+              <Typography style={{ color: '#94A3B8', fontSize: 16, fontWeight: '600', fontStyle: 'italic' }}>Find </Typography>
+              <AnimatePresence exitBeforeEnter>
+                <MotiView
+                  key={placeholderIndex}
+                  from={{ opacity: 0, translateY: 10 }}
+                  animate={{ opacity: 1, translateY: 0 }}
+                  exit={{ opacity: 0, translateY: -10 }}
+                  transition={{ type: 'timing', duration: 400 }}
+                >
+                  <Typography style={{ color: '#94A3B8', fontSize: 16, fontWeight: '600', fontStyle: 'italic' }}>
+                    {PLACEHOLDERS[placeholderIndex]}...
+                  </Typography>
+                </MotiView>
+              </AnimatePresence>
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Categories */}
         <View style={{ backgroundColor: '#FFFFFF', paddingBottom: 16, overflow: 'visible' }}>
           <ScrollView
@@ -225,45 +290,7 @@ export const HomeScreen = ({ navigation }: any) => {
           </ScrollView>
         </View>
 
-        {/* Search Bar - Premium Glass Effect */}
-        <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => navigation.navigate('SearchTab')}
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: 16,
-              padding: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              borderWidth: 1.5,
-              borderColor: '#002f34',
-              shadowColor: '#002f34',
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.1,
-              shadowRadius: 15,
-              elevation: 6
-            }}
-          >
-            <Search size={22} color={OLX_TEAL} strokeWidth={2.5} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12 }}>
-              <Typography style={{ color: '#94A3B8', fontSize: 16, fontWeight: '600', fontStyle: 'italic' }}>Find </Typography>
-              <AnimatePresence exitBeforeEnter>
-                <MotiView
-                  key={placeholderIndex}
-                  from={{ opacity: 0, translateY: 10 }}
-                  animate={{ opacity: 1, translateY: 0 }}
-                  exit={{ opacity: 0, translateY: -10 }}
-                  transition={{ type: 'timing', duration: 400 }}
-                >
-                  <Typography style={{ color: '#94A3B8', fontSize: 16, fontWeight: '600', fontStyle: 'italic' }}>
-                    {PLACEHOLDERS[placeholderIndex]}...
-                  </Typography>
-                </MotiView>
-              </AnimatePresence>
-            </View>
-          </TouchableOpacity>
-        </View>
+
 
         {/* Jobs Section */}
         {sections.jobs.length > 0 && (activeCategory === 'All' || activeCategory === 'Jobs') && (
@@ -298,9 +325,9 @@ export const HomeScreen = ({ navigation }: any) => {
 
         {/* Products Section */}
         {sections.products.length > 0 && (activeCategory === 'All' || activeCategory !== 'Jobs') && (
-          <View style={{ paddingHorizontal: 16 }}>
+          <View>
             {renderSectionHeader('Fresh Recommendations', () => console.log('See All Products'))}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 16 }}>
               {sections.products.map((item, index) => (
                 <MotiView
                   key={item.id}
@@ -312,7 +339,8 @@ export const HomeScreen = ({ navigation }: any) => {
                   <ProductCard
                     {...item}
                     image={item.images[0]}
-                    onPress={() => navigation.navigate('ProductDetails', { product: item })}
+                    isAd={item.isAd}
+                    onPress={() => item.isAd ? console.log('Ad Clicked') : navigation.navigate('ProductDetails', { product: item })}
                   />
                 </MotiView>
               ))}

@@ -143,7 +143,7 @@ export const listingService = {
     },
 
     // Search listings
-    searchListings: async (searchQuery: string) => {
+    searchListings: async (searchQuery: string, location?: string) => {
         try {
             const productSnap = await getDocs(query(collection(db, 'products'), limit(50)));
             const jobSnap = await getDocs(query(collection(db, 'jobs'), limit(50)));
@@ -153,8 +153,19 @@ export const listingService = {
                 ...jobSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing))
             ];
 
-            if (!searchQuery) return all;
-            return all.filter(l => l.title.toLowerCase().includes(searchQuery.toLowerCase()));
+            let results = all;
+
+            if (searchQuery) {
+                const queryLower = searchQuery.toLowerCase();
+                results = results.filter(l => l.title.toLowerCase().includes(queryLower));
+            }
+
+            if (location) {
+                const locationLower = location.toLowerCase();
+                results = results.filter(l => l.location?.toLowerCase().includes(locationLower));
+            }
+
+            return results;
         } catch (error) {
             console.error("Error searching listings: ", error);
             throw error;
