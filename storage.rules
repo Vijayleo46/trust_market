@@ -24,6 +24,18 @@ service firebase.storage {
       allow read: if false; // Private
       allow write: if isAuthenticated() && request.auth.uid == userId;
     }
+
+    // Jobs images (Missing rule fix)
+    match /jobs/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Products images (Future proofing)
+    match /products/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
     
     // Default deny
     match /{allPaths=**} {

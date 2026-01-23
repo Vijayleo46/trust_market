@@ -1,33 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Image, TouchableOpacity, Dimensions, ScrollView, Alert, StatusBar, Platform, ActivityIndicator, StyleSheet, Share, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MotiView, AnimatePresence } from 'moti';
+import { MotiView } from 'moti';
 import { Typography } from '../components/common/Typography';
 import {
     Heart,
     Share2,
-    ChevronLeft,
     MapPin,
-    Clock,
-    CheckCircle2,
-    MessageCircle,
-    Phone,
-    ShieldCheck,
     ArrowLeft,
     Star,
-    Send
+    Calendar,
+    ShieldCheck,
+    Flag,
+    MessageCircle,
+    ChevronRight,
+    Safety
 } from 'lucide-react-native';
 import { listingService } from '../services/listingService';
 import { chatService } from '../services/chatService';
-import { userService } from '../services/userService';
 import { auth, db } from '../core/config/firebase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { collection, getDocs } from 'firebase/firestore';
-import { useTheme } from '../theme/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
-const IMG_HEIGHT = height * 0.5;
+const IMG_HEIGHT = height * 0.45;
 
 export const ProductDetailsScreen = ({ route, navigation }: any) => {
     const { product } = route.params || {};
@@ -38,7 +35,6 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
     const [wishlistLoading, setWishlistLoading] = useState(false);
     const [loading, setLoading] = useState(!product);
     const [chatLoading, setChatLoading] = useState(false);
-    const [isZoomed, setIsZoomed] = useState(false);
 
     // Fetch fresh data from backend
     useEffect(() => {
@@ -102,7 +98,6 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
     };
 
     const handleChatWithSeller = async () => {
-        console.log('--- Chat Button Clicked ---');
         const user = auth.currentUser;
         if (!user) {
             Alert.alert('Login Required', 'Please login to chat with the seller');
@@ -116,7 +111,6 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
             const sellerName = item.sellerName || 'Seller';
             const sellerAvatar = item.sellerAvatar || 'https://i.pravatar.cc/150?u=' + item.sellerId;
 
-            console.log('Initiating chat with backend...');
             const chatId = await chatService.getOrCreateChat(
                 user.uid,
                 item.sellerId,
@@ -126,10 +120,7 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                 item.id,
                 item.title
             );
-            console.log('✅ Chat ID retrieved:', chatId);
 
-            // Navigate IMMEDIATELY to avoid "stuck loading" feeling
-            console.log('🚀 Navigating to ChatRoom...');
             navigation.navigate('ChatRoom', {
                 chatId,
                 otherName: sellerName,
@@ -140,43 +131,49 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                 productId: item.id
             });
 
-            // Handle the initial message in the BACKGROUND
+            // Prepare potential background message check
             (async () => {
                 try {
                     const messagesRef = collection(db, 'chats', chatId, 'messages');
                     const snapshot = await getDocs(messagesRef);
                     if (snapshot.empty) {
-                        console.log('🔵 Sending background intro message...');
                         await chatService.sendMessage(
                             chatId,
                             user.uid,
                             `Hi ${sellerName}, I'm interested in "${item.title}". Is it still available?`
                         );
                     }
-                } catch (bgErr) {
-                    console.warn('Background message failed:', bgErr);
-                }
+                } catch (e) { }
             })();
 
         } catch (error: any) {
-            console.error('❌ Chat Error:', error);
             Alert.alert('Connection Error', 'Could not start chat. Please check your internet.');
         } finally {
             setChatLoading(false);
         }
     };
 
-    const handleCallSeller = () => {
-        if (item.contactPhone || item.showPhone) {
-            Alert.alert('Call Seller', `Connecting to ${item.contactPhone || 'seller'}...`);
-        } else {
-            Alert.alert('Info', 'Seller has not provided a phone number.');
-        }
+    const handleReportListing = () => {
+        Alert.alert(
+            "Report Listing",
+            "Are you sure you want to report this listing? Our team will review it.",
+            [
+                { text: "Cancel", style: "cancel" },
+                { text: "Report", style: "destructive", onPress: () => Alert.alert("Reported", "Thank you for helping us keep the community safe.") }
+            ]
+        );
     };
 
     const getTimeAgo = () => {
         if (!item?.createdAt) return 'Just now';
-        return 'Recently added';
+        const createdAt = item.createdAt?.toDate ? item.createdAt.toDate() : new Date(item.createdAt);
+        const now = new Date();
+        const diffInSeconds = Math.floor((now.getTime() - createdAt.getTime()) / 1000);
+
+        if (diffInSeconds < 60) return 'Just now';
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+        return `${Math.floor(diffInSeconds / 86400)}d ago`;
     };
 
     if (loading || !item) {
@@ -186,281 +183,235 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
             </View>
         );
     }
+
+    // Static map image for placeholder
+    const MAP_PLACEHOLDER = "https://images.unsplash.com/photo-1524661135-423995f22d0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80";
+
     return (
-        <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+        <View style={styles.container}>
             <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 140 }}
-                bounces={false}
-            >
-                {/* Product Image Carousel */}
-                <View style={{ height: IMG_HEIGHT, width: '100%', position: 'relative' }}>
-                    <FlatList
-                        data={item.images || []}
-                        horizontal
-                        pagingEnabled
-                        showsHorizontalScrollIndicator={false}
-                        onScroll={(e: any) => {
-                            const x = e.nativeEvent.contentOffset.x;
-                            const index = Math.round(x / width);
-                            if (index !== activeImageIndex) {
-                                setActiveImageIndex(index);
-                            }
-                        }}
-                        scrollEventThrottle={16}
-                        renderItem={({ item: imgUri, index }: any) => (
-                            <TouchableOpacity
-                                activeOpacity={0.9}
-                                onPress={() => {
-                                    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (e) { }
-                                    navigation.navigate('ImageViewer', {
-                                        images: item.images,
-                                        initialIndex: index
-                                    });
-                                }}
-                                style={{ width, height: IMG_HEIGHT }}
-                            >
-                                <Image
-                                    source={{ uri: imgUri }}
-                                    style={{ width, height: IMG_HEIGHT }}
-                                    resizeMode="cover"
-                                />
-                            </TouchableOpacity>
-                        )}
-                        keyExtractor={(_: any, index: number) => index.toString()}
-                    />
-
-                    {/* Pagination Indicator */}
-                    {(item.images?.length > 1) && (
-                        <View style={{
-                            position: 'absolute',
-                            bottom: 50,
-                            flexDirection: 'row',
-                            alignSelf: 'center',
-                            zIndex: 20,
-                            gap: 6
-                        }}>
-                            {item.images.map((_: any, i: number) => (
-                                <MotiView
-                                    key={i}
-                                    animate={{
-                                        width: activeImageIndex === i ? 24 : 8,
-                                        backgroundColor: activeImageIndex === i ? '#FFF' : 'rgba(255,255,255,0.5)',
-                                    }}
-                                    style={{
-                                        height: 8,
-                                        borderRadius: 4,
-                                    }}
-                                />
-                            ))}
-                        </View>
+            {/* Header / Image Slider */}
+            <View style={styles.imageContainer}>
+                <FlatList
+                    data={item.images || []}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onScroll={(e: any) => {
+                        const x = e.nativeEvent.contentOffset.x;
+                        const index = Math.round(x / width);
+                        if (index !== activeImageIndex) {
+                            setActiveImageIndex(index);
+                        }
+                    }}
+                    scrollEventThrottle={16}
+                    renderItem={({ item: imgUri, index }: any) => (
+                        <TouchableOpacity
+                            activeOpacity={0.95}
+                            onPress={() => {
+                                try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (e) { }
+                                navigation.navigate('ImageViewer', {
+                                    images: item.images,
+                                    initialIndex: index
+                                });
+                            }}
+                            style={{ width, height: IMG_HEIGHT }}
+                        >
+                            <Image
+                                source={{ uri: imgUri }}
+                                style={styles.productImage}
+                                resizeMode="cover"
+                            />
+                        </TouchableOpacity>
                     )}
-                </View>
-
-                {/* Dark Overlay for better button visibility */}
-                <LinearGradient
-                    colors={['rgba(0,0,0,0.4)', 'transparent', 'transparent']}
-                    style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 120 }}
+                    keyExtractor={(_: any, index: number) => index.toString()}
                 />
 
-                {/* Header Buttons Overlay */}
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
-                    <SafeAreaView edges={['top']} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10 }}>
-                        <TouchableOpacity
-                            onPress={() => navigation.goBack()}
-                            style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}
-                        >
-                            <ChevronLeft size={24} color="#0F172A" strokeWidth={2.5} />
-                        </TouchableOpacity>
+                {/* Pagination Dots */}
+                {(item.images?.length > 1) && (
+                    <View style={styles.pagination}>
+                        {item.images.map((_: any, i: number) => (
+                            <View
+                                key={i}
+                                style={[
+                                    styles.paginationDot,
+                                    { backgroundColor: activeImageIndex === i ? '#FFF' : 'rgba(255,255,255,0.5)', width: activeImageIndex === i ? 24 : 6 }
+                                ]}
+                            />
+                        ))}
+                    </View>
+                )}
 
-                        <View style={{ flexDirection: 'row', gap: 12 }}>
-                            <TouchableOpacity style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
-                                <Share2 size={20} color="#0F172A" strokeWidth={2.5} />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={toggleWishlist}
-                                disabled={wishlistLoading}
-                                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}
-                            >
-                                <Heart
-                                    size={20}
-                                    color={isInWishlist ? "#EF4444" : "#0F172A"}
-                                    fill={isInWishlist ? "#EF4444" : "transparent"}
-                                    strokeWidth={2.5}
-                                />
-                            </TouchableOpacity>
+                {/* Header Actions */}
+                <SafeAreaView style={styles.headerOverlay} edges={['top']}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconCircle}>
+                        <ArrowLeft size={24} color="#002f34" />
+                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                        <TouchableOpacity
+                            style={styles.iconCircle}
+                            onPress={() => Share.share({ message: `Check this out: ${item.title} - ${item.price}` })}
+                        >
+                            <Share2 size={24} color="#002f34" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.iconCircle} onPress={toggleWishlist}>
+                            <Heart size={24} color={isInWishlist ? "#EF4444" : "#002f34"} fill={isInWishlist ? "#EF4444" : "transparent"} />
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            </View>
+
+            {/* Content Body */}
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+                style={styles.sheetContainer}
+            >
+                {/* 1. Primary Info (OLX Style: Price -> Title -> Location) */}
+                <View style={styles.section}>
+                    <View style={styles.priceRow}>
+                        <Typography style={styles.priceText}>{item.price}</Typography>
+                        {item.isBoosted && (
+                            <View style={styles.featuredTag}>
+                                <Typography style={{ fontSize: 10, fontWeight: '700', color: '#4B3505' }}>FEATURED</Typography>
+                            </View>
+                        )}
+                    </View>
+
+                    <Typography style={styles.titleText}>{item.title}</Typography>
+
+                    <View style={styles.metaRow}>
+                        <View style={styles.metaItem}>
+                            <MapPin size={14} color="#555" />
+                            <Typography style={styles.metaText}>{item.location || 'Location N/A'}</Typography>
                         </View>
-                    </SafeAreaView>
+                        <View style={styles.metaItem}>
+                            <Calendar size={14} color="#555" />
+                            <Typography style={styles.metaText}>{getTimeAgo()}</Typography>
+                        </View>
+                    </View>
                 </View>
 
-                {/* Product Details Sheet */}
-                <MotiView
-                    from={{ translateY: 100 }}
-                    animate={{ translateY: 0 }}
-                    transition={{ type: 'spring', damping: 20 }}
-                    style={{
-                        backgroundColor: '#FFFFFF',
-                        borderTopLeftRadius: 32,
-                        borderTopRightRadius: 32,
-                        marginTop: -32,
-                        paddingHorizontal: 24,
-                        paddingTop: 32,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: -10 },
-                        shadowOpacity: 0.05,
-                        shadowRadius: 20,
-                        elevation: 5,
-                    }}
-                >
-                    {/* Category & Time */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <View style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 }}>
-                            <Typography style={{ color: '#4F46E5', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 }}>
-                                {item.category}
-                            </Typography>
+                {/* 2. Details Grid */}
+                <View style={[styles.section, { borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingVertical: 16 }]}>
+                    <Typography style={styles.sectionLabel}>Details</Typography>
+                    <View style={styles.grid}>
+                        <View style={styles.gridItem}>
+                            <Typography style={styles.gridLabel}>Category</Typography>
+                            <Typography style={styles.gridValue}>{item.category}</Typography>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Clock size={14} color="#94A3B8" />
-                            <Typography style={{ color: '#64748B', fontSize: 12, marginLeft: 6 }}>{getTimeAgo()}</Typography>
-                        </View>
-                    </View>
-
-                    {/* Title */}
-                    <Typography style={{ color: '#0F172A', fontSize: 28, fontWeight: '900', marginBottom: 16, lineHeight: 36 }}>
-                        {item.title}
-                    </Typography>
-
-                    {/* Price & Badge */}
-                    <View style={{ marginBottom: 24 }}>
-                        <Typography style={{ color: '#94A3B8', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, marginBottom: 4 }}>
-                            {item.type === 'job' ? 'ESTIMATED SALARY' : 'PRICE'}
-                        </Typography>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Typography style={{ color: '#6366F1', fontSize: 36, fontWeight: '900' }}>
-                                {item.price}
-                            </Typography>
-                            <View style={{ marginLeft: 16, backgroundColor: '#FEF08A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
-                                <Typography style={{ fontSize: 14 }}>⭐</Typography>
-                                <Typography style={{ color: '#854D0E', fontSize: 12, fontWeight: '700', marginLeft: 4 }}>
-                                    {item.type === 'job' ? 'Urgent' : 'Featured'}
-                                </Typography>
+                        {item.condition && (
+                            <View style={styles.gridItem}>
+                                <Typography style={styles.gridLabel}>Condition</Typography>
+                                <Typography style={styles.gridValue}>{item.condition}</Typography>
                             </View>
-                        </View>
-                    </View>
-
-                    {/* Location */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
-                        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}>
-                            <MapPin size={18} color="#6366F1" />
-                        </View>
-                        <Typography style={{ color: '#475569', fontSize: 16, fontWeight: '600', marginLeft: 12 }}>
-                            {item.location}
-                        </Typography>
-                    </View>
-
-                    <View style={{ height: 1, backgroundColor: '#F1F5F9', marginBottom: 24 }} />
-
-                    {/* Job Specific Info */}
-                    {item.type === 'job' && (
-                        <View style={{ marginBottom: 32 }}>
-                            <Typography style={{ color: '#94A3B8', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, marginBottom: 16 }}>
-                                JOB DETAILS
-                            </Typography>
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                                {item.jobType && (
-                                    <View style={{ backgroundColor: '#F8FAFC', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderColor: '#F1F5F9', borderWidth: 1 }}>
-                                        <Typography variant="bodySmall" color="#64748B">Type</Typography>
-                                        <Typography style={{ color: '#0F172A', fontWeight: '700', marginTop: 2 }}>{item.jobType}</Typography>
-                                    </View>
-                                )}
-                                {item.workMode && (
-                                    <View style={{ backgroundColor: '#F8FAFC', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderColor: '#F1F5F9', borderWidth: 1 }}>
-                                        <Typography variant="bodySmall" color="#64748B">Mode</Typography>
-                                        <Typography style={{ color: '#0F172A', fontWeight: '700', marginTop: 2 }}>{item.workMode}</Typography>
-                                    </View>
-                                )}
-                                {item.experienceLevel && (
-                                    <View style={{ backgroundColor: '#F8FAFC', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderColor: '#F1F5F9', borderWidth: 1 }}>
-                                        <Typography variant="bodySmall" color="#64748B">Experience</Typography>
-                                        <Typography style={{ color: '#0F172A', fontWeight: '700', marginTop: 2 }}>{item.experienceLevel}</Typography>
-                                    </View>
-                                )}
-                            </View>
-
-                            {item.skills && item.skills.length > 0 && (
-                                <View style={{ marginTop: 20 }}>
-                                    <Typography style={{ color: '#94A3B8', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, marginBottom: 12 }}>
-                                        REQUIRED SKILLS
-                                    </Typography>
-                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                                        {item.skills.map((skill: string) => (
-                                            <View key={skill} style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 }}>
-                                                <Typography style={{ color: '#4F46E5', fontSize: 13, fontWeight: '600' }}>{skill}</Typography>
-                                            </View>
-                                        ))}
-                                    </View>
+                        )}
+                        {item.type === 'job' && (
+                            <>
+                                <View style={styles.gridItem}>
+                                    <Typography style={styles.gridLabel}>Type</Typography>
+                                    <Typography style={styles.gridValue}>{item.jobType || 'Full Time'}</Typography>
                                 </View>
-                            )}
-                        </View>
-                    )}
+                                <View style={styles.gridItem}>
+                                    <Typography style={styles.gridLabel}>Experience</Typography>
+                                    <Typography style={styles.gridValue}>{item.experienceLevel || 'Entry'}</Typography>
+                                </View>
+                            </>
+                        )}
+                        {/* Placeholder for future Brand/Model if needed */}
+                        {/* <View style={styles.gridItem}>
+                            <Typography style={styles.gridLabel}>Brand</Typography>
+                            <Typography style={styles.gridValue}>Generic</Typography>
+                        </View> */}
+                    </View>
+                </View>
 
-                    {/* Seller/Company Info */}
-                    <Typography style={{ color: '#94A3B8', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, marginBottom: 16 }}>
-                        {item.type === 'job' ? 'COMPANY INFO' : 'LISTED BY'}
-                    </Typography>
+                {/* 3. Description */}
+                <View style={[styles.section, { borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingVertical: 16 }]}>
+                    <Typography style={styles.sectionLabel}>Description</Typography>
+                    <Typography style={styles.descriptionText}>{item.description}</Typography>
+                </View>
 
-                    <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', padding: 16, borderRadius: 20, marginBottom: 32 }}>
-                        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#6366F1', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                            {item.type === 'job' && item.images?.[0] ? (
-                                <Image source={{ uri: item.images[0] }} style={{ width: '100%', height: '100%' }} />
-                            ) : (
-                                <Typography style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700' }}>
-                                    {sellerDisplayName.charAt(0)}
-                                </Typography>
-                            )}
-                        </View>
-                        <View style={{ marginLeft: 16, flex: 1 }}>
-                            <Typography style={{ color: '#0F172A', fontSize: 18, fontWeight: '700' }}>
-                                {sellerDisplayName}
-                            </Typography>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                                <CheckCircle2 size={14} color="#10B981" fill="#10B981" />
-                                <Typography style={{ color: '#10B981', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
-                                    {item.type === 'job' ? 'Verified Recruiter' : 'Verified Professional'}
-                                </Typography>
+                {/* 4. Location Map (New Feature) */}
+                <View style={[styles.section, { borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingVertical: 16 }]}>
+                    <Typography style={styles.sectionLabel}>Location</Typography>
+                    <View style={styles.mapContainer}>
+                        <Image source={{ uri: MAP_PLACEHOLDER }} style={styles.mapImage} resizeMode="cover" />
+                        <View style={styles.mapOverlay}>
+                            <View style={styles.mapPinCircle}>
+                                <MapPin size={20} color="#002f34" fill="#002f34" />
                             </View>
+                            <Typography style={styles.mapText}>{item.location || 'Approximate Location'}</Typography>
                         </View>
-                        <ChevronLeft size={20} color="#94A3B8" style={{ transform: [{ rotate: '180deg' }] }} />
+                    </View>
+                </View>
+
+                {/* 5. Seller Profile (Enhanced) */}
+                <View style={[styles.section, { borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingTop: 16 }]}>
+                    <Typography style={styles.sectionLabel}>Sold By</Typography>
+                    <TouchableOpacity style={styles.sellerRow}>
+                        {item.sellerAvatar ? (
+                            <Image source={{ uri: item.sellerAvatar }} style={styles.avatar} />
+                        ) : (
+                            <View style={styles.placeholderAvatar}>
+                                <Typography style={styles.avatarText}>{sellerDisplayName.charAt(0)}</Typography>
+                            </View>
+                        )}
+                        <View style={styles.sellerInfo}>
+                            <Typography style={styles.sellerName}>{sellerDisplayName}</Typography>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Star size={14} color="#FBBF24" fill="#FBBF24" />
+                                <Typography style={styles.sellerRating}>{item.rating || 'New Seller'}</Typography>
+                            </View>
+                            <Typography style={styles.memberSince}>Member since 2024</Typography>
+                        </View>
+                        <ChevronRight size={20} color="#94A3B8" />
                     </TouchableOpacity>
+                </View>
 
-                    {/* Description */}
-                    <Typography style={{ color: '#94A3B8', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, marginBottom: 12 }}>
-                        DESCRIPTION
-                    </Typography>
-                    <Typography style={{ color: '#334155', fontSize: 16, lineHeight: 26, marginBottom: 32 }}>
-                        {item.description}
-                    </Typography>
+                {/* 6. Safety Tips (New Feature) */}
+                <View style={[styles.section, {
+                    backgroundColor: '#F0FDF4',
+                    borderRadius: 12,
+                    padding: 16,
+                    marginTop: 8,
+                    borderWidth: 1,
+                    borderColor: '#BBF7D0'
+                }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                        <ShieldCheck size={20} color="#166534" />
+                        <Typography style={{ fontSize: 16, fontWeight: '700', color: '#166534', marginLeft: 8 }}>Safety Tips</Typography>
+                    </View>
+                    <View style={{ gap: 8 }}>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#166534', marginTop: 8 }} />
+                            <Typography style={{ fontSize: 13, color: '#14532D', flex: 1 }}>Meet in a safe and public place</Typography>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#166534', marginTop: 8 }} />
+                            <Typography style={{ fontSize: 13, color: '#14532D', flex: 1 }}>Don't pay in advance</Typography>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#166534', marginTop: 8 }} />
+                            <Typography style={{ fontSize: 13, color: '#14532D', flex: 1 }}>Check the item before you buy</Typography>
+                        </View>
+                    </View>
+                </View>
 
-                    {/* Condition */}
-                    {item.condition && (
-                        <>
-                            <Typography style={{ color: '#94A3B8', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, marginBottom: 12 }}>
-                                CONDITION
-                            </Typography>
-                            <View style={{ alignSelf: 'flex-start', backgroundColor: '#F0FDF4', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginBottom: 32 }}>
-                                <Typography style={{ color: '#166534', fontSize: 14, fontWeight: '700' }}>
-                                    {item.condition}
-                                </Typography>
-                            </View>
-                        </>
-                    )}
-                </MotiView>
+                {/* 7. Report Button (New Feature) */}
+                <TouchableOpacity
+                    onPress={handleReportListing}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 20, marginBottom: 80, gap: 8 }}
+                >
+                    <Flag size={16} color="#EF4444" />
+                    <Typography style={{ fontSize: 14, fontWeight: '600', color: '#EF4444' }}>Report this ad</Typography>
+                </TouchableOpacity>
+
             </ScrollView>
 
             {/* Sticky Bottom Actions */}
-            <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', paddingHorizontal: 24, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 34 : 16, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+            <View style={styles.bottomBar}>
                 <MotiView
                     from={{ translateY: 50, opacity: 0 }}
                     animate={{ translateY: 0, opacity: 1 }}
@@ -470,27 +421,14 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                         onPress={handleChatWithSeller}
                         disabled={chatLoading}
                         activeOpacity={0.8}
-                        style={{
-                            backgroundColor: '#002f34',
-                            height: 64,
-                            borderRadius: 32,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            shadowColor: '#002f34',
-                            shadowOffset: { width: 0, height: 8 },
-                            shadowOpacity: 0.3,
-                            shadowRadius: 16,
-                            elevation: 8,
-                            opacity: chatLoading ? 0.7 : 1
-                        }}
+                        style={[styles.chatButton, { opacity: chatLoading ? 0.7 : 1 }]}
                     >
                         {chatLoading ? (
                             <ActivityIndicator color="#FFFFFF" />
                         ) : (
                             <>
                                 <MessageCircle size={24} color="#FFFFFF" strokeWidth={2.5} />
-                                <Typography style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginLeft: 12 }}>
+                                <Typography style={styles.chatButtonText}>
                                     {item.type === 'job' ? 'Chat with Recruiter' : 'Chat with Seller'}
                                 </Typography>
                             </>
@@ -498,6 +436,267 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
                     </TouchableOpacity>
                 </MotiView>
             </View>
-        </View >
+        </View>
     );
 };
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+    },
+    imageContainer: {
+        height: IMG_HEIGHT,
+        width: '100%',
+        backgroundColor: '#F1F5F9',
+    },
+    productImage: {
+        width: '100%',
+        height: '100%',
+    },
+    pagination: {
+        position: 'absolute',
+        bottom: 24,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 8,
+    },
+    paginationDot: {
+        height: 6,
+        borderRadius: 3,
+    },
+    headerOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingTop: 12,
+    },
+    iconCircle: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    sheetContainer: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+        marginTop: -24,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+    },
+    scrollContent: {
+        paddingTop: 24,
+        paddingHorizontal: 20,
+    },
+    section: {
+        marginBottom: 24,
+    },
+    priceRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    priceText: {
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#002f34',
+        letterSpacing: -0.5,
+    },
+    featuredTag: {
+        backgroundColor: '#FEF08A',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 4,
+    },
+    titleText: {
+        fontSize: 20,
+        fontWeight: '400',
+        color: '#002f34',
+        marginBottom: 12,
+        lineHeight: 28,
+    },
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    metaItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    metaText: {
+        fontSize: 13,
+        color: '#64748B',
+    },
+    sectionLabel: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#002f34',
+        marginBottom: 16,
+    },
+    grid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    gridItem: {
+        width: (width - 40 - 12) / 2,
+        backgroundColor: '#F8FAFC',
+        padding: 12,
+        borderRadius: 12,
+    },
+    gridLabel: {
+        fontSize: 12,
+        color: '#64748B',
+        marginBottom: 4,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    gridValue: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#0F172A',
+    },
+    descriptionText: {
+        fontSize: 15,
+        lineHeight: 24,
+        color: '#334155',
+    },
+    sellerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F8FAFC',
+        padding: 12,
+        borderRadius: 16,
+    },
+    avatar: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+    },
+    placeholderAvatar: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#E2E8F0',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarText: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#64748B',
+    },
+    sellerInfo: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    sellerName: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#002f34',
+        marginBottom: 2,
+    },
+    sellerRating: {
+        fontSize: 13,
+        color: '#FBBF24',
+        fontWeight: '600',
+        marginLeft: 4,
+    },
+    memberSince: {
+        fontSize: 12,
+        color: '#64748B',
+        marginTop: 4,
+    },
+    visitButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+    },
+    visitButtonText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#002f34',
+    },
+    mapContainer: {
+        height: 150,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: '#E2E8F0',
+        position: 'relative'
+    },
+    mapImage: {
+        width: '100%',
+        height: '100%',
+        opacity: 0.8
+    },
+    mapOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.1)',
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    mapPinCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#FFFFFF',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 3,
+        marginBottom: 8
+    },
+    mapText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#FFFFFF',
+        textShadowColor: 'rgba(0,0,0,0.5)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4
+    },
+    bottomBar: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 24,
+        paddingTop: 16,
+        paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+        borderTopWidth: 1,
+        borderTopColor: '#F1F5F9',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
+        elevation: 20,
+    },
+    chatButton: {
+        backgroundColor: '#002f34',
+        height: 64,
+        borderRadius: 32,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    chatButtonText: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: '700',
+        marginLeft: 12,
+    },
+});

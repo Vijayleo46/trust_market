@@ -11,20 +11,44 @@ export const storageService = {
     uploadImage: async (uri: string, path: string): Promise<string> => {
         console.log(`📸 Starting upload: URI=${uri}, PATH=${path}`);
         try {
-            // Using fetch for better compatibility in modern Expo/React Native
-            console.log('🔄 Converting URI to Blob...');
-            const response = await fetch(uri);
-            const blob = await response.blob();
+            // Use XMLHttpRequest for reliable Blob creation in React Native/Expo
+            console.log('🔄 Converting URI to Blob via XHR...');
+            const blob: Blob = await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.onload = function () {
+                    resolve(xhr.response);
+                };
+                xhr.onerror = function (e) {
+                    console.error('XHR Error:', e);
+                    reject(new TypeError("Network request failed"));
+                };
+                xhr.responseType = "blob";
+                xhr.open("GET", uri, true);
+                xhr.send(null);
+            });
 
-            console.log('📦 Blob created, size:', blob?.size, 'type:', blob?.type);
+            console.log('📦 Blob created, size:', blob.size, 'type:', blob.type);
+
             const storageRef = ref(storage, path);
             console.log('🚀 Sending bytes to Firebase Storage...');
-            await uploadBytes(storageRef, blob);
+
+            const metadata = {
+                contentType: 'image/jpeg', // Force content type
+            };
+
+            await uploadBytes(storageRef, blob, metadata);
             console.log('✅ Upload complete for:', path);
 
-            return await getDownloadURL(storageRef);
-        } catch (error) {
+            // Clean up blob to free memory
+            // @ts-ignore
+            blob.close && blob.close();
+
+            const url = await getDownloadURL(storageRef);
+            console.log('🔗 Download URL:', url);
+            return url;
+        } catch (error: any) {
             console.error("Error uploading image: ", error);
+            console.error("Error details:", JSON.stringify(error, null, 2));
             throw error;
         }
     },
