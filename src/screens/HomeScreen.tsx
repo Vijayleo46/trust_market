@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, ScrollView, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, Image, Dimensions, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, ScrollView, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, Image, Dimensions, StyleSheet, RefreshControl } from 'react-native';
 import { Typography } from '../components/common/Typography';
-import { Search, MapPin, Bell, Heart, Home, MessageCircle, User, Plus, ChevronLeft, Car, Smartphone, Briefcase, Settings, Mic, Star } from 'lucide-react-native';
+import { Search, MapPin, Bell, Heart, Home, MessageCircle, User, Plus, ChevronLeft, Car, Smartphone, Briefcase, Settings, Mic, Star, Zap } from 'lucide-react-native';
 import { listingService, Listing } from '../services/listingService';
 import { useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,11 +16,12 @@ const PLACEHOLDERS = ['cars', 'jobs', 'mobiles', 'properties', 'everything'];
 
 const CATEGORIES = [
   { id: '1', label: 'All', value: 'All', icon: Home },
-  { id: '2', label: 'Cars', value: 'Vehicles', icon: Car },
-  { id: '3', label: 'Properties', value: 'Real Estate', icon: Home },
-  { id: '4', label: 'Mobile', value: 'Mobiles', icon: Smartphone },
-  { id: '5', label: 'Jobs', value: 'Jobs', icon: Briefcase },
-  { id: '6', label: 'Services', value: 'Services', icon: Settings },
+  { id: '2', label: 'Mobiles', value: 'Mobiles', icon: Smartphone },
+  { id: '3', label: 'Cars', value: 'Vehicles', icon: Car },
+  { id: '4', label: 'Property', value: 'Real Estate', icon: Home },
+  { id: '5', label: 'Electronics', value: 'Electronics', icon: Zap }, // New
+  { id: '6', label: 'Jobs', value: 'Jobs', icon: Briefcase },
+  { id: '7', label: 'Services', value: 'Services', icon: Settings },
 ];
 
 export const HomeScreen = ({ navigation }: any) => {
@@ -63,29 +64,29 @@ export const HomeScreen = ({ navigation }: any) => {
     }
   }, [isFocused]);
 
-  useEffect(() => {
-    const fetchListings = async () => {
-      try {
-        setLoading(true);
-        let allListings = await listingService.getFeaturedListings(60);
+  const fetchListings = useCallback(async () => {
+    try {
+      setLoading(true);
+      let allListings = await listingService.getFeaturedListings(60);
 
-        if (allListings.length === 0) {
-          await listingService.seedDemoData();
-          allListings = await listingService.getFeaturedListings(60);
-        }
-
-        setListings(allListings);
-      } catch (error) {
-        console.error("Failed to fetch listings", error);
-      } finally {
-        setLoading(false);
+      if (allListings.length === 0) {
+        await listingService.seedDemoData();
+        allListings = await listingService.getFeaturedListings(60);
       }
-    };
 
+      setListings(allListings);
+    } catch (error) {
+      console.error("Failed to fetch listings", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
     if (isFocused) {
       fetchListings();
     }
-  }, [isFocused]);
+  }, [isFocused, fetchListings]);
 
   const sections = useMemo(() => {
     const products = listings.filter(l => l.type !== 'job');
@@ -157,6 +158,9 @@ export const HomeScreen = ({ navigation }: any) => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={fetchListings} colors={[OLX_TEAL]} />
+        }
       >
         {/* Header */}
         <View style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
@@ -347,8 +351,8 @@ export const HomeScreen = ({ navigation }: any) => {
                   <ProductCard
                     {...item}
                     image={item.images[0]}
-                    isAd={item.isAd}
-                    onPress={() => item.isAd ? console.log('Ad Clicked') : navigation.navigate('ProductDetails', { product: item })}
+                    isAd={(item as any).isAd}
+                    onPress={() => (item as any).isAd ? console.log('Ad Clicked') : navigation.navigate('ProductDetails', { product: item })}
                   />
                 </MotiView>
               ))}

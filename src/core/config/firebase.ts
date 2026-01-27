@@ -30,9 +30,10 @@ if (Platform.OS === 'web') {
     // Web uses browser's built-in persistence (localStorage by default)
     auth = getAuth(app);
 } else {
-    // React Native - Firebase JS SDK v12+ handles persistence automatically
+    // React Native - Config with AsyncStorage persistence
+    const { getReactNativePersistence } = require('firebase/auth');
     auth = initializeAuth(app, {
-        // AsyncStorage persistence is handled automatically by Firebase JS SDK
+        persistence: getReactNativePersistence(AsyncStorage)
     });
 }
 

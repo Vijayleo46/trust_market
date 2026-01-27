@@ -17,7 +17,8 @@ import {
     Moon,
     User,
     Star,
-    Grid
+    Grid,
+    Wallet
 } from 'lucide-react-native';
 import { authService } from '../services/authService';
 import { auth } from '../core/config/firebase';
@@ -188,13 +189,14 @@ export const ProfileScreen = ({ navigation }: any) => {
                             <Typography style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>≈ ₹{Math.floor((userProfile?.coins || 0) * (50 / 150))}</Typography>
                             <TouchableOpacity
                                 onPress={handleSyncCoins}
-                                style={{ marginTop: 8, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}
+                                activeOpacity={0.7}
+                                style={styles.syncBtnRefined}
                             >
-                                <Typography style={{ color: '#FFF', fontSize: 10, fontWeight: '700' }}>🔄 SYNC COINS</Typography>
+                                <Typography style={{ color: '#FFF', fontSize: 10, fontWeight: '800' }}>🔄 SYNC COINS</Typography>
                             </TouchableOpacity>
                         </View>
                     </LinearGradient>
-                    <View style={styles.coinsTip}>
+                    <View style={styles.coinsTipRefined}>
                         <Typography style={{ color: '#002f34', fontSize: 11, fontWeight: '600' }}>💡 TIP: 150 Coins = ₹50 discount on any product you buy!</Typography>
                     </View>
                 </Animated.View>
@@ -220,6 +222,12 @@ export const ProfileScreen = ({ navigation }: any) => {
                         label="Saved Items"
                         onPress={() => navigation.navigate('Wishlist')}
                     />
+                    <MenuItem
+                        index={3}
+                        icon={<Wallet size={20} {...{ color: "#F59E0B" } as any} />}
+                        label="SuperCoin Wallet"
+                        onPress={() => navigation.navigate('Wallet')}
+                    />
                 </View>
 
                 <View style={[styles.menuSection, { marginTop: 24 }]}>
@@ -242,7 +250,7 @@ export const ProfileScreen = ({ navigation }: any) => {
                         icon={<ShieldCheck size={20} {...{ color: "#1F2937" } as any} />}
                         label="Get Verified (KYC)"
                         onPress={() => navigation.navigate('KYC')}
-                    />
+                        w />
                     <MenuItem
                         index={5}
                         icon={<Grid size={20} {...{ color: "#1F2937" } as any} />}
@@ -446,7 +454,16 @@ const styles = StyleSheet.create({
         padding: 20,
         justifyContent: 'space-between',
     },
-    coinsTip: {
+    syncBtnRefined: {
+        marginTop: 8,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    coinsTipRefined: {
         backgroundColor: '#F0FDFA',
         paddingVertical: 10,
         paddingHorizontal: 20,
@@ -454,4 +471,3 @@ const styles = StyleSheet.create({
         borderTopColor: 'rgba(0,0,0,0.05)',
     },
 });
-

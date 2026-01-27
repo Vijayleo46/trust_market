@@ -25,6 +25,7 @@ export const PostJobScreen = ({ navigation }: any) => {
     const { theme } = useTheme();
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [statusText, setStatusText] = useState('');
 
     // Form State
     const [jobTitle, setJobTitle] = useState('');
@@ -105,18 +106,30 @@ export const PostJobScreen = ({ navigation }: any) => {
             return;
         }
 
+        console.log('🚀 === POST JOB BUTTON CLICKED ===');
+        console.log('Job Title:', jobTitle);
+        console.log('Company:', companyName);
+        console.log('Location:', location);
+
         setLoading(true);
+        setStatusText('Starting upload...');
         triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
         try {
             const user = auth.currentUser;
+            console.log('✅ User authenticated:', user?.uid);
             let logoUrl = '';
 
             if (companyLogo) {
+                console.log('📸 Uploading company logo...');
+                setStatusText('Uploading company logo...');
                 const urls = await storageService.uploadMultipleImages([companyLogo], 'jobs');
                 logoUrl = urls[0];
+                console.log('✅ Logo uploaded:', logoUrl);
             }
 
-            await listingService.createListing({
+            console.log('💾 Saving job to Firestore...');
+            setStatusText('Saving job details...');
+            const jobId = await listingService.createListing({
                 title: jobTitle,
                 description,
                 price: salaryMin && salaryMax ? `₹${salaryMin} - ₹${salaryMax}` : 'Negotiable',
@@ -144,19 +157,25 @@ export const PostJobScreen = ({ navigation }: any) => {
                 chatsCount: 0,
             });
 
+            console.log('✅ JOB POSTED SUCCESSFULLY! ID:', jobId);
             try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch (e) { }
+            setStatusText('Success!');
             setSuccess(true);
+            Alert.alert('Success! 🎉', 'Job posted successfully!');
             setTimeout(() => {
                 setSuccess(false);
+                setStatusText('');
                 navigation.navigate('HomeTab');
             }, 2000);
 
         } catch (error) {
+            console.error('❌ === POST JOB ERROR ===');
+            console.error('Error details:', error);
             try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); } catch (e) { }
-            Alert.alert('Error', 'Failed to post job.');
-            console.error(error);
+            Alert.alert('Error', 'Failed to post job. Check console for details.');
         } finally {
             setLoading(false);
+            setStatusText('');
         }
     };
 
@@ -437,7 +456,7 @@ export const PostJobScreen = ({ navigation }: any) => {
                     </Typography>
                 </TouchableOpacity>
             </View>
-        </View>
+        </View >
     );
 };
 

@@ -115,13 +115,31 @@ export const MyListingsScreen = ({ navigation }: any) => {
     };
 
     const handleBoost = async (id: string, type: Listing['type']) => {
-        try {
-            await listingService.boostListing(id, type);
-            Alert.alert('Success', 'Listing boosted!');
-            fetchListings();
-        } catch (error) {
-            Alert.alert('Error', 'Failed to boost listing');
+        const user = auth.currentUser;
+        if (!user) {
+            Alert.alert('Error', 'You must be logged in to boost listings');
+            return;
         }
+
+        Alert.alert(
+            '🚀 Boost Listing',
+            'Boost this listing for 24 hours?\n\nCost: 20 SuperCoins\nBenefit: Top of search results',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Boost Now',
+                    onPress: async () => {
+                        try {
+                            await listingService.boostListing(id, type, user.uid);
+                            Alert.alert('Success! 🎉', 'Your listing is now boosted for 24 hours!');
+                            fetchListings();
+                        } catch (error: any) {
+                            Alert.alert('Error', error.message || 'Failed to boost listing');
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const filteredListings = listings.filter(item => {

@@ -15,6 +15,8 @@ import {
     Timestamp
 } from 'firebase/firestore';
 import { db, auth } from '../core/config/firebase';
+import { userService } from './userService';
+import { coinTransactionService } from './coinTransactionService';
 
 export interface Listing {
     id?: string;
@@ -33,6 +35,8 @@ export interface Listing {
     enableChat?: boolean;
     showPhone?: boolean;
     isBoosted?: boolean;
+    boostExpiresAt?: Timestamp;
+    sellerTrustScore?: number;
 
     // Job specific fields
     salaryRange?: string;
@@ -70,13 +74,15 @@ export const listingService = {
             });
             // Award 3 coins for posting
             try {
-                const userRef = doc(db, 'users', data.sellerId);
-                const userSnap = await getDoc(userRef);
-                const currentCoins = userSnap.exists() ? (userSnap.data()?.coins || 0) : 0;
-                await updateDoc(userRef, { coins: currentCoins + 3 });
-                console.log('✅ Awarded 3 coins for new listing');
+                await userService.updateCoins(listing.sellerId, 3, 'New Listing Reward', { type: listing.type });
+
+                // Set initial trust score on listing
+                const sellerProfile = await userService.getProfile(listing.sellerId);
+                if (sellerProfile?.trustScore) {
+                    await updateDoc(docRef, { sellerTrustScore: sellerProfile.trustScore });
+                }
             } catch (e) {
-                console.error('Error awarding coins:', e);
+                console.error('Error in post-listing logic:', e);
             }
 
             return docRef.id;
@@ -97,9 +103,14 @@ export const listingService = {
             const products = productSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing));
             const jobs = jobSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing));
 
-            // Merge and sort by createdAt
+            // Merge and sort: Boosted first, then by createdAt
             return [...products, ...jobs]
                 .sort((a, b) => {
+                    // Boosted items first
+                    if (a.isBoosted && !b.isBoosted) return -1;
+                    if (!a.isBoosted && b.isBoosted) return 1;
+
+                    // Then by createdAt
                     const timeA = a.createdAt?.toMillis() || 0;
                     const timeB = b.createdAt?.toMillis() || 0;
                     return timeB - timeA;
@@ -175,6 +186,20 @@ export const listingService = {
                 const locationLower = location.toLowerCase();
                 results = results.filter(l => l.location?.toLowerCase().includes(locationLower));
             }
+
+            // Sort: Boosted first, then by trust score, then by date
+            results.sort((a, b) => {
+                if (a.isBoosted && !b.isBoosted) return -1;
+                if (!a.isBoosted && b.isBoosted) return 1;
+
+                const trustA = a.sellerTrustScore || 0;
+                const trustB = b.sellerTrustScore || 0;
+                if (trustA !== trustB) return trustB - trustA;
+
+                const timeA = a.createdAt?.toMillis() || 0;
+                const timeB = b.createdAt?.toMillis() || 0;
+                return timeB - timeA;
+            });
 
             return results;
         } catch (error) {
@@ -290,7 +315,7 @@ export const listingService = {
                     description: 'We are looking for a visionary Mobile Architect to lead our engineering team. You will be responsible for defining the technical roadmap and mentoring senior developers.',
                     price: '₹ 45L - 60L',
                     category: 'Jobs',
-                    images: ['https://images.unsplash.com/photo-1549921294-585720df5122?auto=format&fit=crop&q=80&w=1000'],
+                    images: ['https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&q=80&w=1000'],
                     sellerId: 'admin',
                     sellerName: user?.displayName || 'Leo',
                     rating: 5,
@@ -313,7 +338,7 @@ export const listingService = {
                     description: 'We need a creative designer for our new startup. Remote friendly.',
                     price: '₹ 80k/yr',
                     category: 'Jobs',
-                    images: ['https://images.unsplash.com/photo-1586717791821-3f44a5638d28?auto=format&fit=crop&q=80&w=1000'],
+                    images: ['https://images.unsplash.com/photo-1542744094-3a31f272c490?auto=format&fit=crop&q=80&w=1000'],
                     sellerId,
                     sellerName: user?.displayName || 'Leo',
                     rating: 0,
@@ -330,7 +355,7 @@ export const listingService = {
                     description: 'Looking for an expert to build a marketplace app. Must know Expo and Firebase.',
                     price: 'Remote',
                     category: 'Jobs',
-                    images: ['https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&q=80&w=1000'],
+                    images: ['https://images.unsplash.com/photo-1605379399642-870262d3d051?auto=format&fit=crop&q=80&w=1000'],
                     sellerId,
                     sellerName: user?.displayName || 'Leo',
                     rating: 0,
@@ -407,12 +432,19 @@ export const listingService = {
                 if (listingSnap.exists()) {
                     const data = listingSnap.data() as Listing;
                     if (data.sellerId && data.status !== 'sold') {
-                        // Award 3 coins to seller
+                        // Award 10 coins to seller (Increased reward as per design)
+                        await userService.updateCoins(data.sellerId, 10, 'Sale Completion Reward', { listingId: id });
+
+                        // Update sale stats for trust score
                         const userRef = doc(db, 'users', data.sellerId);
                         const userSnap = await getDoc(userRef);
-                        const currentCoins = userSnap.exists() ? (userSnap.data()?.coins || 0) : 0;
-                        await updateDoc(userRef, { coins: currentCoins + 3 });
-                        console.log(`✅ Awarded 3 coins to seller ${data.sellerId}`);
+                        const currentStats = userSnap.exists() ? (userSnap.data()?.stats || {}) : {};
+                        await updateDoc(userRef, {
+                            'stats.totalSales': (currentStats.totalSales || 0) + 1
+                        });
+
+                        // Recalculate trust score
+                        await userService.recalculateTrustScore(data.sellerId);
                     }
                 }
             }
@@ -425,9 +457,27 @@ export const listingService = {
     },
 
     // Boost a listing
-    boostListing: async (id: string, type: Listing['type']) => {
+    boostListing: async (id: string, type: Listing['type'], userId: string) => {
         try {
-            await updateDoc(doc(db, listingService.getCollectionName(type), id), { isBoosted: true });
+            // 1. Check if user has enough coins (20 SC as per design)
+            const profile = await userService.getProfile(userId);
+            if (!profile || (profile.coins || 0) < 20) {
+                throw new Error('Insufficient SuperCoins to boost this listing.');
+            }
+
+            // 2. Deduct coins
+            await userService.updateCoins(userId, -20, 'Listing Boost', { listingId: id });
+
+            // 3. Update listing with boost fields (Expires in 24h)
+            const expiryDate = new Date();
+            expiryDate.setHours(expiryDate.getHours() + 24);
+
+            await updateDoc(doc(db, listingService.getCollectionName(type), id), {
+                isBoosted: true,
+                boostExpiresAt: Timestamp.fromDate(expiryDate)
+            });
+
+            return true;
         } catch (error) {
             console.error("Error boosting listing: ", error);
             throw error;

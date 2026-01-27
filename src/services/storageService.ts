@@ -11,8 +11,8 @@ export const storageService = {
     uploadImage: async (uri: string, path: string): Promise<string> => {
         console.log(`📸 Starting upload: URI=${uri}, PATH=${path}`);
         try {
-            // Use XMLHttpRequest for reliable Blob creation in React Native/Expo
-            console.log('🔄 Converting URI to Blob via XHR...');
+            // Use XMLHttpRequest with timeout for reliable Blob creation
+            console.log('🔄 Converting URI to Blob via XHR (with timeout)...');
             const blob: Blob = await new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
                 xhr.onload = function () {
@@ -20,10 +20,14 @@ export const storageService = {
                 };
                 xhr.onerror = function (e) {
                     console.error('XHR Error:', e);
-                    reject(new TypeError("Network request failed"));
+                    reject(new TypeError("Network request failed during image processing"));
+                };
+                xhr.ontimeout = function () {
+                    reject(new TypeError("Image processing timed out"));
                 };
                 xhr.responseType = "blob";
                 xhr.open("GET", uri, true);
+                xhr.timeout = 15000; // 15 seconds timeout for local file read
                 xhr.send(null);
             });
 

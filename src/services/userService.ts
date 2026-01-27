@@ -1,5 +1,6 @@
-import { collection, getDocs, query, where, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc, setDoc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../core/config/firebase';
+import { coinTransactionService } from './coinTransactionService';
 
 export interface UserProfile {
     uid: string;
@@ -12,7 +13,13 @@ export interface UserProfile {
     createdAt: any;
     updatedAt?: any;
     coins?: number;
+    trustScore?: number;
     kycStatus: 'pending' | 'verified' | 'unverified';
+    stats?: {
+        totalSales: number;
+        positiveReviews: number;
+        reportsReceived: number;
+    };
     settings?: {
         notifications: boolean;
         marketing: boolean;
@@ -82,6 +89,65 @@ export const userService = {
         } catch (error) {
             console.error("Error updating settings: ", error);
             throw error;
+        }
+    },
+
+    // Add/Deduct coins and record transaction
+    updateCoins: async (uid: string, amount: number, reason: string, metadata?: any) => {
+        try {
+            const userRef = doc(db, 'users', uid);
+            const type = amount >= 0 ? 'earn' : 'spend';
+
+            await updateDoc(userRef, {
+                coins: increment(amount),
+                updatedAt: new Date()
+            });
+
+            await coinTransactionService.addTransaction(uid, Math.abs(amount), type, reason, metadata);
+
+            // Re-calculate trust score after coin change
+            await userService.recalculateTrustScore(uid);
+
+            return true;
+        } catch (error) {
+            console.error('Error updating coins:', error);
+            throw error;
+        }
+    },
+
+    // Recalculate trust score based on behavior
+    recalculateTrustScore: async (uid: string) => {
+        try {
+            const userRef = doc(db, 'users', uid);
+            const userSnap = await getDoc(userRef);
+            if (!userSnap.exists()) return;
+
+            const data = userSnap.data() as UserProfile;
+            let score = 50; // Base score
+
+            // KYC boost
+            if (data.kycStatus === 'verified') score += 20;
+
+            // Sales boost
+            const sales = data.stats?.totalSales || 0;
+            score += Math.min(sales * 2, 20); // Max 20 points for sales
+
+            // Coin weight (proxy for engagement)
+            const coins = data.coins || 0;
+            score += Math.min(Math.floor(coins / 10), 10); // Max 10 points
+
+            // Penalties
+            const reports = data.stats?.reportsReceived || 0;
+            score -= (reports * 15);
+
+            // Clamp to 0-100
+            const finalScore = Math.max(0, Math.min(100, score));
+
+            await updateDoc(userRef, { trustScore: finalScore });
+            console.log(`✅ Trust score for ${uid} updated to ${finalScore}`);
+            return finalScore;
+        } catch (error) {
+            console.error('Error recalculating trust score:', error);
         }
     }
 };

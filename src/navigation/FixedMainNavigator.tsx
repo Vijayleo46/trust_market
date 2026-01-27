@@ -24,6 +24,7 @@ import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { WishlistScreen } from '../screens/WishlistScreen';
 import { LandingScreen } from '../screens/LandingScreen';
 import { ImageViewerScreen } from '../screens/ImageViewerScreen';
+import { WalletScreen } from '../screens/WalletScreen';
 
 import { authService } from '../services/authService';
 
@@ -217,6 +218,11 @@ export const FixedMainNavigator = () => {
                                 presentation: 'modal',
                                 animation: 'fade',
                             }}
+                        />
+                        <Stack.Screen
+                            name="Wallet"
+                            component={WalletScreen}
+                            options={{ headerShown: false }}
                         />
                     </>
                 )}

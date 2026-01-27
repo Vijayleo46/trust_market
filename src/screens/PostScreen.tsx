@@ -3,9 +3,10 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Dimension
 import Animated, { FadeInUp, FadeIn, SlideInDown, ZoomIn } from 'react-native-reanimated';
 import { useTheme } from '../theme/ThemeContext';
 import { Typography } from '../components/common/Typography';
-import { Camera, MapPin, ChevronRight, Check, X, ArrowRight, ArrowLeft, Image as ImageIcon, Trash2, Zap, MessageCircle, Phone } from 'lucide-react-native';
+import { Camera, MapPin, ChevronRight, Check, X, ArrowRight, ArrowLeft, Image as ImageIcon, Trash2, Zap, MessageCircle, Phone, Wand2 } from 'lucide-react-native';
 import { listingService } from '../services/listingService';
 import { storageService } from '../services/storageService';
+import { aiPriceService, PricePrediction } from '../services/aiPriceService';
 import { auth } from '../core/config/firebase';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,23 +15,26 @@ import { BlurView } from 'expo-blur';
 const { width } = Dimensions.get('window');
 
 const CONDITIONS = ['New', 'Used', 'Refurbished'];
-const CATEGORIES = ['Electronics', 'Fashion', 'Vehicles', 'Properties', 'Services', 'Jobs'];
+const CATEGORIES = ['Mobiles', 'Electronics', 'Vehicles', 'Real Estate', 'Fashion', 'Services', 'Jobs'];
 
 export const PostScreen = ({ route, navigation }: any) => {
     const { theme } = useTheme();
     const [loading, setLoading] = useState(false);
+    const [statusText, setStatusText] = useState('');
     const [success, setSuccess] = useState(false);
 
     // Form State
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [price, setPrice] = useState('');
-    const [category, setCategory] = useState('Electronics');
+    const [category, setCategory] = useState('Mobiles');
     const [condition, setCondition] = useState<'New' | 'Used' | 'Refurbished'>('New');
     const [details, setDetails] = useState({ chat: true, phone: false });
     const [isBoosted, setIsBoosted] = useState(false);
     const [images, setImages] = useState<string[]>([]);
     const [location, setLocation] = useState('');
+    const [analyzing, setAnalyzing] = useState(false);
+    const [prediction, setPrediction] = useState<PricePrediction | null>(null);
 
     const pickImage = async (useCamera = false) => {
         if (images.length >= 5) {
@@ -67,159 +71,123 @@ export const PostScreen = ({ route, navigation }: any) => {
         newImages.splice(index, 1);
         setImages(newImages);
     };
+    const handleAIPredict = async () => {
+        if (images.length === 0) {
+            Alert.alert('No Image', 'Please upload an image first for AI to analyze.');
+            return;
+        }
+
+        setAnalyzing(true);
+        try {
+            // In a real app, we would upload the image first or send base64
+            const result = await aiPriceService.predictPrice(images[0], category, condition);
+            setPrediction(result);
+        } catch (error) {
+            Alert.alert('AI Error', 'Could not estimate price. Please try again.');
+        } finally {
+            setAnalyzing(false);
+        }
+    };
+
+    const applyPrice = (amount: number) => {
+        setPrice(amount.toString());
+        setPrediction(null);
+    };
 
     const handlePublish = async () => {
         console.log('=== PUBLISH STARTED ===');
-        console.log('Title:', title);
-        console.log('Description:', description);
-        console.log('Price:', price);
-        console.log('Location:', location);
-        console.log('Images count:', images.length);
 
-        // Validation
-        if (!title) {
-            Alert.alert('Missing Title', 'Please enter a product title.');
-            return;
-        }
-
-        if (!description) {
-            Alert.alert('Missing Description', 'Please enter a description.');
-            return;
-        }
-
-        if (!price) {
-            Alert.alert('Missing Price', 'Please enter a price.');
-            return;
-        }
-
-        if (!location) {
-            Alert.alert('Missing Location', 'Please enter your location.');
+        if (!title.trim() || !description.trim() || !price.trim() || !location.trim()) {
+            Alert.alert('Missing Fields 📝', 'Please fill in all required fields (Title, Description, Price, Location).');
             return;
         }
 
         if (images.length === 0) {
-            Alert.alert('Missing Images', 'Please add at least one image.');
+            Alert.alert('No Images 📸', 'Please add at least one image to showcase your product.');
             return;
         }
 
         setLoading(true);
-        console.log('Loading set to true');
+        setStatusText('Checking connection...');
+
+        // Extended Timeout Promise (60s) for slower connections
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Network timeout. Check your connection or try smaller images.')), 60000)
+        );
 
         try {
             const user = auth.currentUser;
-            console.log('👤 Auth state check:', user ? `Logged in as ${user.uid}` : 'NOT LOGGED IN');
-
             if (!user) {
-                console.error('No user logged in!');
-                Alert.alert(
-                    'Login Required',
-                    'You must be logged in to post. Please login and try again.',
-                    [{ text: 'Go to Login', onPress: () => navigation.navigate('Login') }]
-                );
+                Alert.alert('Login Required', 'You must be logged in to post.');
                 setLoading(false);
+                setStatusText('');
                 return;
             }
 
-            console.log('✅ User verified, starting upload...');
-            console.log('Uploading', images.length, 'images...');
+            // Wrap the main logic in a promise
+            const publishLogic = async () => {
+                setStatusText('Validating user...');
+                console.log('✅ User verified, starting upload...');
 
-            const imageUrls = await storageService.uploadMultipleImages(images, 'listings');
-            console.log('✅ Images uploaded successfully:', imageUrls);
+                setStatusText(`Uploading ${images.length} images...`);
+                const imageUrls = await storageService.uploadMultipleImages(images, 'listings');
+                console.log('✅ Images uploaded successfully:', imageUrls);
 
-            let type: 'product' | 'job' | 'service' = 'product';
-            if (category === 'Jobs') type = 'job';
-            else if (category === 'Services') type = 'service';
+                let type: 'product' | 'job' | 'service' = 'product';
+                if (category === 'Jobs') type = 'job';
+                else if (category === 'Services') type = 'service';
 
-            const listingData = {
-                title,
-                description,
-                price,
-                category,
-                condition,
-                enableChat: details.chat,
-                showPhone: details.phone,
-                isBoosted,
-                images: imageUrls,
-                sellerId: user.uid,
-                sellerName: user.displayName || user.email || 'Leo',
-                rating: 0,
-                type,
-                location: location,
+                // Data Sanity Check
+                // For Products, ensure numeric price. For Jobs/Services, allow text (e.g. "15k/month")
+                let finalPrice = price;
+                if (type === 'product') {
+                    finalPrice = price.replace(/[^0-9.]/g, '');
+                }
+
+                const listingData = {
+                    title: title.trim(),
+                    description: description.trim(),
+                    price: finalPrice,
+                    category,
+                    condition,
+                    enableChat: details.chat,
+                    showPhone: details.phone,
+                    isBoosted,
+                    images: imageUrls,
+                    sellerId: user.uid,
+                    sellerName: user.displayName || user.email || 'User',
+                    rating: 0,
+                    type,
+                    location: location.trim(),
+                    createdAt: new Date(), // Client-side timestamp for immediate UI update
+                };
+
+                setStatusText('Saving listing...');
+                console.log('📝 Creating listing with data:', JSON.stringify(listingData));
+                const listingId = await listingService.createListing(listingData as any);
+                console.log('✅ Listing Created ID:', listingId);
+                return listingId;
             };
 
-            console.log('Creating listing with data:', JSON.stringify(listingData, null, 2));
-            const listingId = await listingService.createListing(listingData);
-            console.log('✅✅✅ SUCCESS! Listing created with ID:', listingId);
+            // Race between publish logic and timeout
+            await Promise.race([publishLogic(), timeoutPromise]);
 
-            // Verify if chat needs to be initialized if user chose to enable it
-            // usually chat is initialized when someone clicks "Chat with Seller"
-            // but we could pre-create something if needed. For now, we just log.
-            console.log('Chat enabled:', details.chat);
-
+            setStatusText('Success!');
             setSuccess(true);
-            console.log('Success state set to true');
 
-            // Success Alert with navigation options
-            Alert.alert(
-                '🎉 Success!',
-                `Your product "${title}" has been published successfully!`,
-                [
-                    {
-                        text: 'View in My Listings',
-                        onPress: () => {
-                            setSuccess(false);
-                            navigation.navigate('MyListings');
-                        }
-                    },
-                    {
-                        text: 'Perfect! (Polichu)',
-                        onPress: () => {
-                            setSuccess(false);
-                            navigation.navigate('MyListings');
-                        }
-                    }
-                ]
-            );
-
-            // Clean up loading state
-            setLoading(false);
-
-            // Reset form after 3 seconds
+            // Immediate reset for next post
             setTimeout(() => {
-                setTitle('');
-                setDescription('');
-                setPrice('');
-                setImages([]);
-                setLocation('');
-                setIsBoosted(false);
-                setCondition('New');
-                setCategory('Electronics');
-            }, 3000);
+                setSuccess(false);
+                setStatusText('');
+                navigation.navigate('MyListings');
+            }, 2000);
 
         } catch (error: any) {
-            console.error('=== PUBLISH ERROR ===');
-            console.error('Error object:', error);
-            console.error('Error message:', error.message);
-            console.error('Error code:', error.code);
-            console.error('Error stack:', error.stack);
-
-            let errorMessage = 'Failed to publish listing.';
-
-            if (error.code === 'storage/unauthorized') {
-                errorMessage = 'Storage permission denied. Please check Firebase Storage rules.';
-            } else if (error.code === 'permission-denied') {
-                errorMessage = 'Database permission denied. Please check Firestore rules.';
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-
-            Alert.alert(
-                '❌ Error',
-                `${errorMessage}\n\nCode: ${error.code}\nMessage: ${error.message}`
-            );
+            console.error('=== PUBLISH ERROR ===', error);
+            Alert.alert('Publish Failed ❌', error.message || 'Check your internet connection.');
+            setStatusText('');
         } finally {
             setLoading(false);
-            console.log('Loading set to false');
         }
     };
 
@@ -254,6 +222,14 @@ export const PostScreen = ({ route, navigation }: any) => {
                     </Typography>
                 </TouchableOpacity>
             </View>
+
+            {loading && statusText ? (
+                <View style={{ backgroundColor: '#FEF3C7', padding: 8, marginHorizontal: 24, borderRadius: 8, marginBottom: 16, alignItems: 'center' }}>
+                    <Typography style={{ color: '#D97706', fontSize: 13, fontWeight: '600' }}>
+                        ⏳ {statusText}
+                    </Typography>
+                </View>
+            ) : null}
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
@@ -305,16 +281,19 @@ export const PostScreen = ({ route, navigation }: any) => {
 
                         <View style={styles.row}>
                             <View style={[styles.inputWrapper, { flex: 1, marginRight: 12 }]}>
-                                <Typography variant="label" style={styles.label}>PRICE</Typography>
+                                <Typography variant="label" style={styles.label}>{category === 'Jobs' ? 'SALARY' : 'PRICE'}</Typography>
                                 <View style={styles.priceContainer}>
                                     <Typography style={{ marginRight: 4, fontWeight: '700' }}>₹</Typography>
                                     <TextInput
-                                        style={[styles.input, { borderWidth: 0, height: 40, paddingHorizontal: 0 }]}
-                                        placeholder="0.00"
-                                        keyboardType="numeric"
+                                        style={[styles.input, { borderWidth: 0, height: 40, paddingHorizontal: 0, flex: 1 }]}
+                                        placeholder={category === 'Jobs' ? "e.g. 15k/mo" : "0.00"}
+                                        keyboardType={category === 'Jobs' ? 'default' : 'numeric'}
                                         value={price}
                                         onChangeText={setPrice}
                                     />
+                                    <TouchableOpacity onPress={handleAIPredict} style={styles.aiButton}>
+                                        <Wand2 size={16} color="#FFF" />
+                                    </TouchableOpacity>
                                 </View>
                             </View>
                             <View style={[styles.inputWrapper, { flex: 1 }]}>
@@ -333,20 +312,23 @@ export const PostScreen = ({ route, navigation }: any) => {
                             </View>
                         </View>
 
-                        <View style={styles.inputWrapper}>
-                            <Typography variant="label" style={styles.label}>CONDITION</Typography>
-                            <View style={styles.chipRow}>
-                                {CONDITIONS.map((c) => (
-                                    <TouchableOpacity
-                                        key={c}
-                                        style={[styles.chip, condition === c && styles.activeChip]}
-                                        onPress={() => setCondition(c as any)}
-                                    >
-                                        <Typography style={[styles.chipText, condition === c && styles.activeChipText]}>{c}</Typography>
-                                    </TouchableOpacity>
-                                ))}
+                        {/* Condition - Hide for Jobs/Services */}
+                        {category !== 'Jobs' && category !== 'Services' && (
+                            <View style={styles.inputWrapper}>
+                                <Typography variant="label" style={styles.label}>CONDITION</Typography>
+                                <View style={styles.chipRow}>
+                                    {CONDITIONS.map((c) => (
+                                        <TouchableOpacity
+                                            key={c}
+                                            style={[styles.chip, condition === c && styles.activeChip]}
+                                            onPress={() => setCondition(c as any)}
+                                        >
+                                            <Typography style={[styles.chipText, condition === c && styles.activeChipText]}>{c}</Typography>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
                             </View>
-                        </View>
+                        )}
 
                         <View style={styles.inputWrapper}>
                             <Typography variant="label" style={styles.label}>DESCRIPTION</Typography>
@@ -448,6 +430,55 @@ export const PostScreen = ({ route, navigation }: any) => {
                     {!loading && <ArrowRight size={20} color="#FFF" />}
                 </TouchableOpacity>
             </View>
+            {/* AI Prediction Modal */}
+            {prediction && (
+                <View style={styles.modalOverlay}>
+                    <Animated.View entering={ZoomIn} style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <View style={{ backgroundColor: '#EEF2FF', padding: 8, borderRadius: 12, marginRight: 12 }}>
+                                    <Wand2 size={24} color="#4F46E5" />
+                                </View>
+                                <Typography variant="h3">AI Estimate</Typography>
+                            </View>
+                            <TouchableOpacity onPress={() => setPrediction(null)}>
+                                <X size={24} color="#6B7280" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Typography style={{ color: '#6B7280', marginTop: 8 }}>
+                            Based on your {category} item and {condition} condition, we suggest:
+                        </Typography>
+
+                        <View style={styles.priceRangeBox}>
+                            <Typography variant="h2" style={{ color: '#002f34' }}>
+                                ₹{prediction.min} - ₹{prediction.max}
+                            </Typography>
+                            <Typography variant="bodySmall" style={{ color: '#10B981', fontWeight: '600', marginTop: 4 }}>
+                                {Math.round(prediction.confidence * 100)}% Confidence
+                            </Typography>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.applyBtn}
+                            onPress={() => applyPrice(Math.round((prediction.min + prediction.max) / 2))}
+                        >
+                            <Typography style={{ color: '#FFF', fontWeight: '700' }}>Apply Recommended Price</Typography>
+                        </TouchableOpacity>
+                    </Animated.View>
+                </View>
+            )}
+
+            {/* Analyzing Overlay */}
+            {analyzing && (
+                <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
+                    <Animated.View entering={FadeIn} style={{ alignItems: 'center' }}>
+                        <Wand2 size={48} color="#FFF" style={{ marginBottom: 16 }} />
+                        <Typography variant="h3" style={{ color: '#FFF' }}>AI Analyzing...</Typography>
+                        <Typography style={{ color: 'rgba(255,255,255,0.7)', marginTop: 8 }}>Estimating optimal price</Typography>
+                    </Animated.View>
+                </View>
+            )}
         </View>
     );
 };
@@ -718,6 +749,59 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
+    },
+    aiButton: {
+        backgroundColor: '#4F46E5',
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+        zIndex: 1000,
+    },
+    modalContent: {
+        backgroundColor: '#FFF',
+        width: '100%',
+        borderRadius: 24,
+        padding: 24,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    priceRangeBox: {
+        backgroundColor: '#F9FAFB',
+        padding: 20,
+        borderRadius: 16,
+        alignItems: 'center',
+        marginVertical: 20,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    applyBtn: {
+        backgroundColor: '#002f34',
+        height: 50,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });
 

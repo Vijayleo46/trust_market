@@ -42,7 +42,7 @@ export const ProductCard = ({ title, price, image, location, type, onPress, isAd
         >
             <View style={{ position: 'relative' }}>
                 <Image
-                    source={{ uri: image }}
+                    source={{ uri: image || 'https://via.placeholder.com/300x200?text=No+Image' }}
                     style={{ width: '100%', height: 140 }}
                     className="bg-[#F9FAFB]"
                     resizeMode="cover"
